@@ -4,6 +4,32 @@
 
     
   <url>
+    <loc>https://zhaoyixing.coding.me/2018/01/10/mysql-update-safe-md/</loc>
+    <lastmod>2018-01-11T03:21:43.000Z</lastmod>
+    <data>
+        <display>
+        <title>由库存扣减问题一起的一系列思考</title>
+        <pubTime>2018-01-10T15:16:32.000Z</pubTime>
+        
+        <tag>mysql</tag>
+         
+        <tag>库存问题</tag>
+         
+        <tag>并发</tag>
+         
+        <tag>update语句</tag>
+         
+         
+           
+             
+              <breadCrumb title="技术笔记" url="https://zhaoyixing.coding.me/categories/%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/"/>
+          
+        </display>
+    </data>
+    </url>
+
+    
+  <url>
     <loc>https://zhaoyixing.coding.me/2017/12/31/setupflag/</loc>
     <lastmod>2018-01-05T11:05:54.000Z</lastmod>
     <data>
