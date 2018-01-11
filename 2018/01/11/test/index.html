@@ -79,14 +79,19 @@
 
 
 
+<meta name="description" content="对于有商品的业务来说，库存的扣减一直是技术同学所需要关心的问题。在设计实现方案的时候，我们主要需要考虑几个方面： 1.基础功能：   实现扣减功能，当然还需要考虑其他内容 2.安全性要求： 不要超发超卖 3.性能要求：   结合自己的业务进行相应的预估 基础实现方案基础功能和安全性要求是必须完成，在流量比较低的网站而言，直接使用mysql性能也是没问题的，下面就看看使用mysql实现功能的方案及问">
 <meta property="og:type" content="article">
 <meta property="og:title" content="test">
 <meta property="og:url" content="https://zhaoyixing.coding.me/2018/01/11/test/index.html">
 <meta property="og:site_name" content="赵一行的博客">
+<meta property="og:description" content="对于有商品的业务来说，库存的扣减一直是技术同学所需要关心的问题。在设计实现方案的时候，我们主要需要考虑几个方面： 1.基础功能：   实现扣减功能，当然还需要考虑其他内容 2.安全性要求： 不要超发超卖 3.性能要求：   结合自己的业务进行相应的预估 基础实现方案基础功能和安全性要求是必须完成，在流量比较低的网站而言，直接使用mysql性能也是没问题的，下面就看看使用mysql实现功能的方案及问">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:updated_time" content="2018-01-11T03:25:28.000Z">
+<meta property="og:image" content="http://pic.yupoo.com/hedengcheng/DnJ6RwcV/medish.jpg">
+<meta property="og:updated_time" content="2018-01-11T03:26:48.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="test">
+<meta name="twitter:description" content="对于有商品的业务来说，库存的扣减一直是技术同学所需要关心的问题。在设计实现方案的时候，我们主要需要考虑几个方面： 1.基础功能：   实现扣减功能，当然还需要考虑其他内容 2.安全性要求： 不要超发超卖 3.性能要求：   结合自己的业务进行相应的预估 基础实现方案基础功能和安全性要求是必须完成，在流量比较低的网站而言，直接使用mysql性能也是没问题的，下面就看看使用mysql实现功能的方案及问">
+<meta name="twitter:image" content="http://pic.yupoo.com/hedengcheng/DnJ6RwcV/medish.jpg">
 
 
 
@@ -310,7 +315,127 @@
       
 
       
-        
+        <p>对于有商品的业务来说，库存的扣减一直是技术同学所需要关心的问题。在设计实现方案的时候，我们主要需要考虑几个方面：</p>
+<pre><code>1.基础功能：   实现扣减功能，当然还需要考虑其他内容
+2.安全性要求： 不要超发超卖
+3.性能要求：   结合自己的业务进行相应的预估
+</code></pre><h2 id="基础实现方案"><a href="#基础实现方案" class="headerlink" title="基础实现方案"></a>基础实现方案</h2><p>基础功能和安全性要求是必须完成，在流量比较低的网站而言，直接使用mysql性能也是没问题的，下面就看看使用mysql实现功能的方案及问题。</p>
+<h2 id="mysql如何做扣减？安全吗？"><a href="#mysql如何做扣减？安全吗？" class="headerlink" title="mysql如何做扣减？安全吗？"></a>mysql如何做扣减？安全吗？</h2><p>假设我们的商品表叫A表结构如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">table A </span><br><span class="line">   id    bigint unsigned     商品id，主键索引</span><br><span class="line">   name    varchar           商品名称</span><br><span class="line">   stock   uint|int ?        总量</span><br><span class="line">   avaliable uint|int        可用量</span><br></pre></td></tr></table></figure>
+<p>不考虑用户记录,假设用户买了一件商品,那么很常见的三种方案如下。</p>
+<ul>
+<li><strong>A:先查后写，不使用事务</strong></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">select avaliable from A where id = xxx ;</span><br><span class="line"></span><br><span class="line">if(avaliable &gt; 0)&#123;</span><br><span class="line">    update A set avaliable = avaliable - 1 where id = xxxx ;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>B:使用事务来保证更新操作完，再次查询，保证不超发</strong></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">select avaliable from A where id = xxx ;</span><br><span class="line"></span><br><span class="line">if(avaliable &lt;= 0)&#123;</span><br><span class="line">    return ;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">begin ;</span><br><span class="line">update A set avaliable = avaliable - 1 where id = xxxx ;</span><br><span class="line"></span><br><span class="line">//写完再查</span><br><span class="line">select avaliable from A where id = xxx ;</span><br><span class="line"></span><br><span class="line">if(avaliable &lt;= 0)&#123;</span><br><span class="line">    rollback ;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">commit ;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>C:加上avaliable - 1 &gt; 0的条件</strong></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">update A set avaliable = avaliable - 1 where id = xxxx and avaliable - 1 &gt;=0  ;</span><br></pre></td></tr></table></figure>
+<p>来看看上面三个方案的各自是否可行？有什么问题？怎么改进?<br><strong>A方案：简单、不安全</strong></p>
+<p>问题复现效果如下：<br>假设现在商品还剩一件，两个用户同时点击了抢购，假设avaliable=1</p>
+<p>从时间轴来看这个问题可能更清晰一些：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">时间</th>
+<th style="text-align:center">用户1</th>
+<th style="text-align:center">用户2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">0</td>
+<td style="text-align:center">发起select请求</td>
+<td style="text-align:center">发起select请求</td>
+</tr>
+<tr>
+<td style="text-align:left">1</td>
+<td style="text-align:center">网络通畅，数据到达，拿到avaliable=1</td>
+<td style="text-align:center">请求未响应，等待结果</td>
+</tr>
+<tr>
+<td style="text-align:left">2</td>
+<td style="text-align:center">执行update语句，发送请求，等待响应</td>
+<td style="text-align:center">请求未响应，等待结果</td>
+</tr>
+<tr>
+<td style="text-align:left">3</td>
+<td style="text-align:center">执行update语句，发送请求，等待响应</td>
+<td style="text-align:center">数据到达，拿到avaliable=1</td>
+</tr>
+<tr>
+<td style="text-align:left">4</td>
+<td style="text-align:center">执行update语句，发送请求，等待响应</td>
+<td style="text-align:center">执行update语句，发送请求，等待响应</td>
+</tr>
+<tr>
+<td style="text-align:left">5</td>
+<td style="text-align:center">执行成功</td>
+<td style="text-align:center">执行update语句，发送请求，等待响应</td>
+</tr>
+<tr>
+<td style="text-align:left">6</td>
+<td style="text-align:center">执行成功</td>
+<td style="text-align:center">执行成功</td>
+</tr>
+</tbody>
+</table>
+<p>所以最后的结果就是出现了问题，具体是什么问题还要看你的avaliable的数据类型，如果是有符号int，那么这里变成了-1.无符号int，后果不好预测，原因下面会介绍，这也是C方案的问题。</p>
+<p><strong>B方案：情况比较复杂，个人认为是安全的(有待争议，未实验)</strong></p>
+<p>我们一般使用mysql的隔离级别都使用rc（read commit），rr（repeated read），我们也只对这两种情况讨论。首先标明我的观点，安全但是低效。<br>原因如下：<br>1.mysql实现的是2段锁协议，加锁阶段只加锁，释放锁的动作只在事务commit/rollback的时候释放。<br>2.上面的B的update语句，因为id是主键索引，所以会对id=xxx上行锁。<br>综上原因，两个事务并发执行，出现征用锁的情况的时候，必然出现一个等待另一个事务完全执行完毕。第二个虽然执行了update，但是之后的查询的确会查到负数(假设avaliable为有符号)<br>3.所以可以保证，但是低效。</p>
+<p><strong>C方案：C方案是我使用的方案，单也有一点小瑕疵。</strong></p>
+<p>原因如下：(下面讨论的是avaliable为有符号的情况)<br>1.update 语句中的都是当前读<br>2.如上面介绍，这条update语句，因为id是主键索引，所以会对id=xxx上行锁。<br>3.两段锁协议，一旦一个事务获得锁，会直到他提交或者回滚才释放<br>加上update语句的执行过程图加以说明（引用）：</p>
+<p><img src="http://pic.yupoo.com/hedengcheng/DnJ6RwcV/medish.jpg" alt="alt text" title="Title"></p>
+<p>同样按照时间轴的顺序来分析一下：</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">时间</th>
+<th style="text-align:center">用户1</th>
+<th style="text-align:center">用户2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">0</td>
+<td style="text-align:center">发起update请求</td>
+<td style="text-align:center">发起update请求</td>
+</tr>
+<tr>
+<td style="text-align:left">1</td>
+<td style="text-align:center">msqlserver 发起 current read</td>
+<td style="text-align:center">msqlserver 发起 current read</td>
+</tr>
+<tr>
+<td style="text-align:left">2</td>
+<td style="text-align:center">获得锁</td>
+<td style="text-align:center">等待</td>
+</tr>
+<tr>
+<td style="text-align:left">3</td>
+<td style="text-align:center">处理更新</td>
+<td style="text-align:center">等待</td>
+</tr>
+<tr>
+<td style="text-align:left">4</td>
+<td style="text-align:center">commit</td>
+<td style="text-align:center">返回数据，因为已经被更新成0，所以返回数据为空</td>
+</tr>
+<tr>
+<td style="text-align:left">5</td>
+<td style="text-align:center">执行成功</td>
+<td style="text-align:center">结束</td>
+</tr>
+</tbody>
+</table>
+<p>所以，C语句是理论安全的。<br>一个小瑕疵就是，如果avaliable是无符号的数据类型的话会出现不可预知的问题。对于计算及而言<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">avaliable 如果是无符号数，avaliable = avaliable - 1这条语句在avaliable=0的时候执行结果是这个无符号所能表达的最大整数 - 1</span><br><span class="line">所以：</span><br><span class="line">update A set avaliable = avaliable - 1 where id = xxxx and avaliable - 1 &gt;=0  ;</span><br><span class="line">这条语句在avaliable = 0 的时候，获得的结果是avaliable = max(int) - 1,很危险的！</span><br></pre></td></tr></table></figure></p>
+<p>所以最终我们还是采用了有符号数作为avaliable，网上有的方案认为avaliable设置为无符号是一个保底的动作，这个是极其危险的问题，因为你的代码需要依赖于数据库的配置项。</p>
+<p>时间原因，未完待续，有问题请留言！</p>
+
       
     </div>
     
@@ -413,8 +538,17 @@
       
 
       
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
 
-      <section class="site-overview-wrap sidebar-panel sidebar-panel-active">
+      <section class="site-overview-wrap sidebar-panel">
         <div class="site-overview">
           <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
             
@@ -494,6 +628,22 @@
         </div>
       </section>
 
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#基础实现方案"><span class="nav-number">1.</span> <span class="nav-text">基础实现方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mysql如何做扣减？安全吗？"><span class="nav-number">2.</span> <span class="nav-text">mysql如何做扣减？安全吗？</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
       
 
       
