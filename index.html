@@ -258,7 +258,7 @@
         
           <h1 class="post-title" itemprop="name headline">
                 
-                <a class="post-title-link" href="/2018/01/10/mysql-update-safe-md/" itemprop="url">由库存扣减问题一起的一系列思考</a></h1>
+                <a class="post-title-link" href="/2018/01/10/mysql-update-safe-md/" itemprop="url">mysql 库存扣减问题总结</a></h1>
         
 
         <div class="post-meta">
@@ -270,7 +270,7 @@
               
                 <span class="post-meta-item-text">发表于</span>
               
-              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-01-10T23:16:32+08:00">
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2018-01-10T23:16:00+08:00">
                 2018-01-10
               </time>
             
@@ -331,11 +331,8 @@
       
         
           
-          对于有商品的业务来说，库存的扣减一直是技术同学所需要关心的问题。在设计实现方案的时候，我们主要需要考虑几个方面：
-1.基础功能：   实现扣减功能，当然还需要考虑其他内容
-2.安全性要求： 不要超发超卖
-3.性能要求：   结合自己的业务进行相应的预估
-基础实现方案基础功能和安全性要求是必须完成，在
+          文章讨论内容秒杀类的问题一直都是web应用类比较热点的问题，一个超高并发的网站需要考虑从产品、前端优化、站点部署及后端服务等等所有环节进行考虑。mysql所能抗住的写压力是一定的，高并发的web站点，你需要在数据持久化之前控制好压力。今天我不在这篇文章里讨论秒杀整体设计的问题(我也没这个资格)。
+现
           ...
           <!--noindex-->
           <div class="post-button text-center">
