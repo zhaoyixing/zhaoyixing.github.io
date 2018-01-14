@@ -68,7 +68,7 @@
 
 
 
-  <meta name="keywords" content="mysql,库存问题,并发,update语句," />
+  <meta name="keywords" content="mysql,商品库存扣减,并发,update语句," />
 
 
 
@@ -80,17 +80,17 @@
 
 
 <meta name="description" content="文章讨论内容秒杀类的问题一直都是web领域比较热点的问题，一个超高并发的网站需要考虑从产品、前端优化、站点部署及后端服务等等所有环节进行考虑。mysql所能抗住的写压力是一定的，高并发的web站点，你需要在数据持久化之前控制好压力，而不是把所有的请求都落到数据服务这一层。今天我不在这篇文章里讨论秒杀整体设计的问题(我也没这个资格)，我们讨论的是如何在流速已经得到控制的情况下，如何利用mysql更安">
-<meta name="keywords" content="mysql,库存问题,并发,update语句">
+<meta name="keywords" content="mysql,商品库存扣减,并发,update语句">
 <meta property="og:type" content="article">
-<meta property="og:title" content="mysql 库存扣减问题总结">
+<meta property="og:title" content="mysql商品库存扣减问题总结">
 <meta property="og:url" content="https://zhaoyixing.coding.me/2018/01/10/mysql-update-safe-md/index.html">
 <meta property="og:site_name" content="赵一行的博客">
 <meta property="og:description" content="文章讨论内容秒杀类的问题一直都是web领域比较热点的问题，一个超高并发的网站需要考虑从产品、前端优化、站点部署及后端服务等等所有环节进行考虑。mysql所能抗住的写压力是一定的，高并发的web站点，你需要在数据持久化之前控制好压力，而不是把所有的请求都落到数据服务这一层。今天我不在这篇文章里讨论秒杀整体设计的问题(我也没这个资格)，我们讨论的是如何在流速已经得到控制的情况下，如何利用mysql更安">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="https://zhaoyixing.coding.me/images/mysqlupdateprocess.png">
-<meta property="og:updated_time" content="2018-01-14T09:08:48.000Z">
+<meta property="og:updated_time" content="2018-01-14T09:15:31.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="mysql 库存扣减问题总结">
+<meta name="twitter:title" content="mysql商品库存扣减问题总结">
 <meta name="twitter:description" content="文章讨论内容秒杀类的问题一直都是web领域比较热点的问题，一个超高并发的网站需要考虑从产品、前端优化、站点部署及后端服务等等所有环节进行考虑。mysql所能抗住的写压力是一定的，高并发的web站点，你需要在数据持久化之前控制好压力，而不是把所有的请求都落到数据服务这一层。今天我不在这篇文章里讨论秒杀整体设计的问题(我也没这个资格)，我们讨论的是如何在流速已经得到控制的情况下，如何利用mysql更安">
 <meta name="twitter:image" content="https://zhaoyixing.coding.me/images/mysqlupdateprocess.png">
 
@@ -128,7 +128,7 @@
 
 
 
-  <title>mysql 库存扣减问题总结 | 赵一行的博客</title>
+  <title>mysql商品库存扣减问题总结 | 赵一行的博客</title>
   
 
 
@@ -262,7 +262,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">mysql 库存扣减问题总结</h1>
+          <h1 class="post-title" itemprop="name headline">mysql商品库存扣减问题总结</h1>
         
 
         <div class="post-meta">
@@ -424,7 +424,7 @@
           
             <a href="/tags/mysql/" rel="tag"># mysql</a>
           
-            <a href="/tags/库存问题/" rel="tag"># 库存问题</a>
+            <a href="/tags/商品库存扣减/" rel="tag"># 商品库存扣减</a>
           
             <a href="/tags/并发/" rel="tag"># 并发</a>
           

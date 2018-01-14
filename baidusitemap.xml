@@ -5,15 +5,15 @@
     
   <url>
     <loc>https://zhaoyixing.coding.me/2018/01/10/mysql-update-safe-md/</loc>
-    <lastmod>2018-01-14T09:08:48.000Z</lastmod>
+    <lastmod>2018-01-14T09:15:31.000Z</lastmod>
     <data>
         <display>
-        <title>mysql 库存扣减问题总结</title>
+        <title>mysql商品库存扣减问题总结</title>
         <pubTime>2018-01-10T15:16:00.000Z</pubTime>
         
         <tag>mysql</tag>
          
-        <tag>库存问题</tag>
+        <tag>商品库存扣减</tag>
          
         <tag>并发</tag>
          
