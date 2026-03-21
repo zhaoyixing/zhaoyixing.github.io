@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Context × Token × GPU × HBM 全链路关系图解</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&family=Caveat:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+@font-face { font-family:'Ma Shan Zheng Local'; src:url('/sessions/pensive-stoic-meitner/fonts/MaShanZheng-Regular.ttf') format('truetype'); }
+@font-face { font-family:'ZCOOL XiaoWei Local'; src:url('/sessions/pensive-stoic-meitner/fonts/ZCOOLXiaoWei-Regular.ttf') format('truetype'); }
+@font-face { font-family:'Caveat Local'; src:url('/sessions/pensive-stoic-meitner/fonts/Caveat-Regular.ttf') format('truetype'); }
+
+:root {
+  --bg: #f9f5ee; --ink: #333; --ink2: #555; --ink3: #888;
+  --yellow: #ffe066; --blue: #b3d9ff; --green: #b8e6b8; --pink: #ffc9c9;
+  --orange: #e8a020; --deep-orange: #d97757; --deep-blue: #4a90c4;
+  --card: #fff; --grid: #d8d2c4;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+
+.canvas {
+  width: 1100px;
+  margin: 0 auto;
+  padding: 40px 50px;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(rgba(200,60,60,0.08) 0px, rgba(200,60,60,0.08) 1px, transparent 1px),
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 100% 100%, 24px 24px, 24px 24px;
+  background-position: 38px 0, 0 0, 0 0;
+  position: relative;
+  font-family: 'ZCOOL XiaoWei', 'ZCOOL XiaoWei Local', 'Noto Sans SC', serif;
+  color: var(--ink);
+  line-height: 1.8;
+  font-size: 15px;
+}
+.canvas::before {
+  content:''; position:absolute; left:38px; top:0; bottom:0; width:2px;
+  background:rgba(200,60,60,0.12);
+}
+
+/* ═══ Typography ═══ */
+.title-area { text-align:center; margin-bottom:35px; }
+.main-title {
+  font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;
+  font-size:48px; color:var(--ink); letter-spacing:2px;
+  position:relative; display:inline-block;
+}
+.main-title::after {
+  content:''; position:absolute; bottom:4px; left:-8px; right:-8px; height:16px;
+  background:linear-gradient(transparent 40%, rgba(255,224,102,0.5) 40%);
+  z-index:-1;
+}
+.sub-title {
+  font-family:'Caveat','Caveat Local',cursive;
+  font-size:20px; color:var(--ink3); margin-top:6px;
+}
+
+.section-title {
+  font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;
+  font-size:30px; color:var(--ink); margin:45px 0 12px; display:flex; align-items:center; gap:12px;
+}
+.section-num {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:50%; background:var(--orange); color:#fff;
+  font-family:'Caveat','Caveat Local',cursive; font-size:22px; font-weight:700;
+  flex-shrink:0;
+}
+
+/* ═══ Highlight markers ═══ */
+.hl-yellow { background:linear-gradient(transparent 55%, rgba(255,224,102,0.45) 55%); }
+.hl-blue { background:linear-gradient(transparent 55%, rgba(179,217,255,0.5) 55%); }
+.hl-green { background:linear-gradient(transparent 55%, rgba(184,230,184,0.5) 55%); }
+.hl-pink { background:linear-gradient(transparent 55%, rgba(255,201,201,0.5) 55%); }
+
+/* ═══ Bubble ═══ */
+.bubble {
+  background:var(--card); border:2px solid #ddd; border-radius:14px;
+  padding:14px 18px; margin:14px 0; position:relative;
+  box-shadow:2px 2px 0 rgba(0,0,0,0.04);
+  font-size:14px; line-height:1.7;
+}
+.bubble.top::before {
+  content:''; position:absolute; top:-10px; left:30px;
+  border:10px solid transparent; border-bottom-color:#ddd; border-top:0;
+}
+.bubble.top::after {
+  content:''; position:absolute; top:-7px; left:32px;
+  border:8px solid transparent; border-bottom-color:var(--card); border-top:0;
+}
+.bubble .emoji { font-size:20px; margin-right:6px; vertical-align:middle; }
+
+/* ═══ Key Point ═══ */
+.key-point {
+  border:2px dashed var(--orange); border-radius:10px; padding:16px 20px;
+  background:rgba(232,160,32,0.06); margin:16px 0;
+}
+.key-point .formula {
+  font-family:'Caveat','Caveat Local',cursive;
+  font-size:22px; font-weight:700; color:var(--deep-orange);
+  text-align:center; margin:8px 0;
+}
+
+/* ═══ Note Tag ═══ */
+.note-tag {
+  display:inline-block; padding:4px 12px; border-radius:4px;
+  font-family:'Caveat','Caveat Local',cursive; font-size:16px; font-weight:600;
+  transform:rotate(-1deg); margin:2px 4px;
+}
+.note-tag.yellow { background:var(--yellow); color:#7a6a00; }
+.note-tag.blue { background:var(--blue); color:#1a5276; }
+.note-tag.green { background:var(--green); color:#2d6a2d; }
+.note-tag.pink { background:var(--pink); color:#8b2020; }
+.note-tag.orange { background:#ffe0b2; color:#8b4513; }
+
+/* ═══ Flow Row ═══ */
+.flow-row {
+  display:flex; align-items:stretch; gap:0; margin:20px 0; flex-wrap:wrap; justify-content:center;
+}
+.flow-item {
+  flex:1; min-width:140px; max-width:220px; background:var(--card); border:2px solid #ddd;
+  border-radius:12px; padding:14px 12px; text-align:center;
+  box-shadow:2px 2px 0 rgba(0,0,0,0.04);
+}
+.flow-item .fi-icon { font-size:28px; margin-bottom:4px; }
+.flow-item .fi-title {
+  font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;
+  font-size:18px; margin-bottom:4px;
+}
+.flow-item .fi-desc { font-size:12px; color:var(--ink2); }
+.flow-arrow {
+  display:flex; align-items:center; font-size:26px; color:var(--orange);
+  font-family:'Caveat','Caveat Local',cursive; font-weight:700; padding:0 4px;
+}
+
+/* ═══ Compare Grid ═══ */
+.compare-grid {
+  display:grid; border-radius:10px; overflow:hidden; margin:16px 0;
+  border:2px solid #ddd; font-size:13px;
+}
+.compare-grid .ch {
+  background:var(--ink); color:#fff; padding:10px 8px; text-align:center;
+  font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive; font-size:15px;
+}
+.compare-grid .cd {
+  padding:9px 8px; text-align:center; border-bottom:1px solid #eee;
+  background:var(--card);
+}
+.compare-grid .cd.shade { background:#faf8f3; }
+.compare-grid .cd.hl { background:rgba(232,160,32,0.1); font-weight:600; }
+
+/* ═══ Chart container ═══ */
+.chart-wrap {
+  background:var(--card); border:2px solid #ddd; border-radius:14px;
+  padding:20px; margin:16px 0; box-shadow:2px 2px 0 rgba(0,0,0,0.04);
+}
+.chart-wrap h4 {
+  font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;
+  font-size:20px; margin-bottom:4px;
+}
+.chart-wrap .chart-desc { font-size:12px; color:var(--ink3); margin-bottom:12px; }
+.chart-box { position:relative; width:100%; height:340px; }
+
+/* ═══ Interactive Calculator ═══ */
+.calc-box {
+  background:linear-gradient(135deg, rgba(179,217,255,0.15), rgba(255,224,102,0.1));
+  border:2px solid var(--deep-blue); border-radius:14px; padding:22px;
+  margin:20px 0;
+}
+.calc-box h4 {
+  font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;
+  font-size:22px; color:var(--deep-blue); margin-bottom:10px;
+}
+.calc-row { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+.calc-row label { font-size:14px; min-width:120px; }
+.calc-row select, .calc-row input {
+  font-family:inherit; font-size:14px; padding:6px 10px;
+  border:1px solid #ccc; border-radius:6px; background:#fff;
+}
+.calc-result {
+  margin-top:14px; padding:14px 18px; background:var(--card);
+  border:2px dashed var(--deep-blue); border-radius:10px;
+  font-size:14px;
+}
+.calc-result .big {
+  font-family:'Caveat','Caveat Local',cursive;
+  font-size:28px; font-weight:700; color:var(--deep-orange);
+}
+
+/* ═══ SVG container ═══ */
+.svg-wrap { margin:20px 0; text-align:center; }
+.svg-wrap svg { max-width:100%; }
+
+/* ═══ Footer ═══ */
+.footer {
+  text-align:center; padding-top:30px; margin-top:30px;
+  border-top:1px dashed #ccc; font-size:12px; color:var(--ink3);
+}
+</style>
+</head>
+<body>
+<div class="canvas">
+
+<!-- ═══════════════ TITLE ═══════════════ -->
+<div class="title-area">
+  <div class="main-title">Context × Token × GPU × HBM</div>
+  <div style="font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;font-size:26px;margin-top:4px;">
+    大模型推理全链路关系图解
+  </div>
+  <div class="sub-title">From Context Window to HBM Demand — A Visual Explainer · 2026.03</div>
+</div>
+
+<!-- ═══════════════ SECTION 0: Overview Flow ═══════════════ -->
+<div class="section-title"><span class="section-num">0</span> 全链路一览：4个概念，一条链</div>
+
+<div class="flow-row">
+  <div class="flow-item" style="border-color:var(--deep-orange);">
+    <div class="fi-icon">📝</div>
+    <div class="fi-title">Context Size</div>
+    <div class="fi-desc">你给模型的输入+输出长度<br>决定了单次对话的"记忆容量"</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-item" style="border-color:var(--orange);">
+    <div class="fi-icon">🔢</div>
+    <div class="fi-title">Token消耗</div>
+    <div class="fi-desc">Context中每个字/词<br>都是一个Token = 计费单位</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-item" style="border-color:var(--deep-blue);">
+    <div class="fi-icon">🧠</div>
+    <div class="fi-title">KV-Cache</div>
+    <div class="fi-desc">模型的"工作记忆"<br>Context越长 → 占用显存越大</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-item" style="border-color:#788c5d;">
+    <div class="fi-icon">⚡</div>
+    <div class="fi-title">GPU / HBM</div>
+    <div class="fi-desc">KV-Cache住在HBM里<br>HBM不够 = 推理瓶颈</div>
+  </div>
+</div>
+
+<div class="bubble top">
+  <span class="emoji">💡</span>
+  <strong>一句话总结：</strong>用户发送的每一段文字（Context），都会被切成Token，每个Token在GPU的HBM显存中留下"记忆印记"（KV-Cache）。Context越长 → Token越多 → KV-Cache越大 → 需要越多HBM → 需要越多/越好的GPU。
+</div>
+
+<!-- ═══════════════ SECTION 1: Context & Token ═══════════════ -->
+<div class="section-title"><span class="section-num">1</span> Context Size 与 Token：从文字到数字</div>
+
+<p style="margin:8px 0 16px;">
+  当你向大模型发送一段话时，模型不是"阅读文字"，而是把文字<span class="hl-yellow">切分成Token</span>——可以理解为模型世界里的"最小单词"。
+</p>
+
+<div style="display:flex;gap:16px;margin:16px 0;">
+<div class="bubble" style="flex:1;">
+  <span class="emoji">🇨🇳</span><strong>中文</strong>：1个汉字 ≈ 1.5-2个Token<br>
+  "今天天气真好" (6字) → 约 8-10 Token<br>
+  <span style="font-size:12px;color:var(--ink3);">中文因BPE编码效率较低，Token密度高于英文</span>
+</div>
+<div class="bubble" style="flex:1;">
+  <span class="emoji">🇬🇧</span><strong>英文</strong>：1个单词 ≈ 1-1.3个Token<br>
+  "The weather is nice today" (5词) → 约 5-6 Token<br>
+  <span style="font-size:12px;color:var(--ink3);">常见词通常1个Token，长词可能拆成2-3个</span>
+</div>
+</div>
+
+<div class="key-point">
+  <div style="text-align:center;font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;font-size:20px;">Context Size = 输入Token + 输出Token</div>
+  <div class="formula">Context Window (200K) = Prompt (你发的) + Completion (AI回的)</div>
+  <div style="text-align:center;font-size:13px;color:var(--ink2);">
+    例如：Claude Opus 4.6 的 Context Window = 200K tokens ≈ 约10-15万个汉字 ≈ 一本中篇小说
+  </div>
+</div>
+
+<div class="compare-grid" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr;">
+  <div class="ch">模型</div><div class="ch">Context Window</div><div class="ch">≈中文字数</div><div class="ch">≈A4页数</div><div class="ch">类比</div>
+  <div class="cd" style="font-weight:600;text-align:left;">GPT-3 (2020)</div><div class="cd">4K</div><div class="cd">~2,500字</div><div class="cd">~3页</div><div class="cd">一封邮件</div>
+  <div class="cd shade" style="font-weight:600;text-align:left;">GPT-4 (2023)</div><div class="cd shade">128K</div><div class="cd shade">~8万字</div><div class="cd shade">~100页</div><div class="cd shade">一本短篇小说</div>
+  <div class="cd" style="font-weight:600;text-align:left;">Claude Opus 4.6 (2025)</div><div class="cd">200K</div><div class="cd">~13万字</div><div class="cd">~160页</div><div class="cd">一本中篇小说</div>
+  <div class="cd shade" style="font-weight:600;text-align:left;">Gemini 2.5 Pro (2025)</div><div class="cd shade">1M</div><div class="cd shade">~65万字</div><div class="cd shade">~800页</div><div class="cd shade hl">三本长篇小说</div>
+  <div class="cd" style="font-weight:600;text-align:left;">MiniMax M2.5 (2026)</div><div class="cd">1M</div><div class="cd">~65万字</div><div class="cd">~800页</div><div class="cd hl">整个代码库</div>
+</div>
+
+<div class="bubble top">
+  <span class="emoji">📈</span>
+  <strong>趋势：</strong>2020年到2026年，Context Window从4K → 1M，<span class="hl-yellow">增长了250倍</span>。这意味着模型能"一次看到"的信息量飞速增长——但代价是什么？往下看 ↓
+</div>
+
+<!-- ═══════════════ SECTION 2: KV-Cache ═══════════════ -->
+<div class="section-title"><span class="section-num">2</span> 关键中间层：KV-Cache（显存杀手）</div>
+
+<p style="margin:8px 0 12px;">
+  这是最关键的环节。模型在生成每一个新Token时，需要"回顾"之前所有Token的信息。这些信息存储在<span class="hl-pink">KV-Cache</span>中——可以想象成模型的"短期记忆"。
+</p>
+
+<!-- SVG: KV-Cache explanation -->
+<div class="svg-wrap">
+<svg viewBox="0 0 960 320" width="100%" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e8a020"/>
+    </marker>
+    <filter id="rough"><feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G"/></filter>
+  </defs>
+
+  <!-- Input tokens -->
+  <rect x="20" y="30" width="200" height="260" rx="12" fill="#fff5ea" stroke="#e8a020" stroke-width="2" filter="url(#rough)"/>
+  <text x="120" y="58" text-anchor="middle" font-family="Ma Shan Zheng, Ma Shan Zheng Local, cursive" font-size="18" fill="#333">输入 Token 序列</text>
+  <rect x="40" y="72" width="160" height="28" rx="6" fill="#ffe066" opacity="0.6"/>
+  <text x="120" y="92" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="16" fill="#333">"请帮我分析这份"</text>
+  <rect x="40" y="108" width="160" height="28" rx="6" fill="#ffe066" opacity="0.6"/>
+  <text x="120" y="128" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="16" fill="#333">"财报数据中的"</text>
+  <rect x="40" y="144" width="160" height="28" rx="6" fill="#ffe066" opacity="0.6"/>
+  <text x="120" y="164" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="16" fill="#333">"收入增长趋势..."</text>
+  <text x="120" y="200" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="14" fill="#888">... (6,000 tokens)</text>
+  <text x="120" y="270" text-anchor="middle" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif" font-size="12" fill="#888">每个Token进入模型的<tspan font-weight="bold">每一层</tspan></text>
+
+  <!-- Arrow -->
+  <line x1="230" y1="160" x2="310" y2="160" stroke="#e8a020" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="270" y="148" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="14" fill="#e8a020">Attention</text>
+
+  <!-- Transformer layers -->
+  <rect x="320" y="30" width="260" height="260" rx="12" fill="#eef5ff" stroke="#4a90c4" stroke-width="2" filter="url(#rough)"/>
+  <text x="450" y="58" text-anchor="middle" font-family="Ma Shan Zheng, Ma Shan Zheng Local, cursive" font-size="18" fill="#333">Transformer 模型</text>
+
+  <g transform="translate(340, 72)">
+    <rect width="220" height="36" rx="6" fill="#b3d9ff" opacity="0.4" stroke="#4a90c4"/>
+    <text x="110" y="24" text-anchor="middle" font-size="13" fill="#333" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif">Layer 1: Self-Attention → 生成 K₁, V₁</text>
+  </g>
+  <g transform="translate(340, 116)">
+    <rect width="220" height="36" rx="6" fill="#b3d9ff" opacity="0.4" stroke="#4a90c4"/>
+    <text x="110" y="24" text-anchor="middle" font-size="13" fill="#333" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif">Layer 2: Self-Attention → 生成 K₂, V₂</text>
+  </g>
+  <g transform="translate(340, 160)">
+    <text x="110" y="16" text-anchor="middle" font-size="20" fill="#888">⋮</text>
+  </g>
+  <g transform="translate(340, 186)">
+    <rect width="220" height="36" rx="6" fill="#b3d9ff" opacity="0.5" stroke="#4a90c4"/>
+    <text x="110" y="24" text-anchor="middle" font-size="13" fill="#333" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif">Layer 80: Self-Attention → 生成 K₈₀, V₈₀</text>
+  </g>
+  <text x="450" y="252" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="14" fill="#4a90c4">每层 × 每个Token = 一对 KV 向量</text>
+  <text x="450" y="274" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="13" fill="#888">70B模型通常有 80 层</text>
+
+  <!-- Arrow -->
+  <line x1="590" y1="160" x2="670" y2="160" stroke="#e8a020" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="630" y="148" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="14" fill="#e8a020">缓存</text>
+
+  <!-- KV-Cache -->
+  <rect x="680" y="30" width="260" height="260" rx="12" fill="#fff0f0" stroke="#c25450" stroke-width="2" filter="url(#rough)"/>
+  <text x="810" y="58" text-anchor="middle" font-family="Ma Shan Zheng, Ma Shan Zheng Local, cursive" font-size="18" fill="#c25450">KV-Cache (HBM中)</text>
+
+  <rect x="700" y="72" width="100" height="80" rx="6" fill="#ffc9c9" opacity="0.5" stroke="#c25450"/>
+  <text x="750" y="96" text-anchor="middle" font-size="14" fill="#333" font-weight="bold" font-family="Caveat, Caveat Local, cursive">Key</text>
+  <text x="750" y="114" text-anchor="middle" font-size="11" fill="#888" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif">6000 × 80层</text>
+  <text x="750" y="130" text-anchor="middle" font-size="11" fill="#888" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif">× 128维</text>
+
+  <rect x="820" y="72" width="100" height="80" rx="6" fill="#b8e6b8" opacity="0.5" stroke="#2d6a2d"/>
+  <text x="870" y="96" text-anchor="middle" font-size="14" fill="#333" font-weight="bold" font-family="Caveat, Caveat Local, cursive">Value</text>
+  <text x="870" y="114" text-anchor="middle" font-size="11" fill="#888" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif">6000 × 80层</text>
+  <text x="870" y="130" text-anchor="middle" font-size="11" fill="#888" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif">× 128维</text>
+
+  <text x="810" y="180" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="18" fill="#c25450" font-weight="700">= 1.2 GB</text>
+  <text x="810" y="204" text-anchor="middle" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif" font-size="12" fill="#888">仅这一个用户的6K context</text>
+  <text x="810" y="222" text-anchor="middle" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif" font-size="12" fill="#888">就占了H100显存的 1.5%</text>
+
+  <rect x="700" y="238" width="220" height="38" rx="8" fill="#c25450" opacity="0.12"/>
+  <text x="810" y="262" text-anchor="middle" font-family="Ma Shan Zheng, Ma Shan Zheng Local, cursive" font-size="15" fill="#c25450">这就是显存消耗的核心！</text>
+</svg>
+</div>
+
+<div class="key-point">
+  <div style="text-align:center;font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;font-size:18px;">KV-Cache 显存计算公式</div>
+  <div class="formula">KV-Cache (bytes) = 2 × n_layers × n_heads × d_head × seq_len × dtype_size</div>
+  <div style="text-align:center;font-size:13px;color:var(--ink2);">
+    2 = K和V两个矩阵 | n_layers = 模型层数 | seq_len = Context长度 | dtype = FP16(2B) 或 FP8(1B)
+  </div>
+</div>
+
+<div class="compare-grid" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr;">
+  <div class="ch">模型</div><div class="ch">参数量</div><div class="ch">层数</div>
+  <div class="ch">权重显存(FP16)</div><div class="ch">KV-Cache @4K</div><div class="ch">KV-Cache @128K</div>
+  <div class="cd" style="font-weight:600;text-align:left;">Llama 3 8B</div><div class="cd">8B</div><div class="cd">32</div>
+  <div class="cd">16 GB</div><div class="cd">0.5 GB</div><div class="cd">16 GB</div>
+  <div class="cd shade" style="font-weight:600;text-align:left;">Llama 3 70B</div><div class="cd shade">70B</div><div class="cd shade">80</div>
+  <div class="cd shade">140 GB</div><div class="cd shade">1.2 GB</div><div class="cd shade hl">40 GB</div>
+  <div class="cd" style="font-weight:600;text-align:left;">Claude级 (~200B)</div><div class="cd">~200B</div><div class="cd">~96</div>
+  <div class="cd">400 GB</div><div class="cd">3.5 GB</div><div class="cd hl">112 GB</div>
+  <div class="cd shade" style="font-weight:600;text-align:left;">GPT-4级 (~1.8T MoE)</div><div class="cd shade">~1.8T</div><div class="cd shade">~120</div>
+  <div class="cd shade">需要多卡</div><div class="cd shade">~5 GB</div><div class="cd shade hl">~160 GB</div>
+</div>
+
+<div class="bubble top">
+  <span class="emoji">🔑</span>
+  <strong>关键洞察：</strong>一个70B模型，权重本身占140GB。但当128K上下文启用时，<span class="hl-pink">单用户的KV-Cache就要40GB</span>——占满半张H100！这意味着一张80GB的H100在跑长上下文时，只能服务<span class="hl-yellow">1-2个并发用户</span>。
+</div>
+
+<!-- ═══════════════ SECTION 3: Chart — Context vs Memory ═══════════════ -->
+<div class="section-title"><span class="section-num">3</span> 数字说话：Context翻倍 → 显存吃掉多少？</div>
+
+<div class="chart-wrap">
+  <h4>不同Context长度下的KV-Cache显存占用</h4>
+  <div class="chart-desc">70B模型(80层, 64 KV heads, 128 dim, FP16) — X轴为Context长度，Y轴为单用户KV-Cache显存</div>
+  <div class="chart-box">
+    <canvas id="kvChart"></canvas>
+  </div>
+</div>
+
+<div style="display:flex;gap:16px;margin:16px 0;">
+<div class="chart-wrap" style="flex:1;">
+  <h4>H100 (80GB) 最大并发用户数</h4>
+  <div class="chart-desc">权重140GB需2卡，剩余显存分给KV-Cache</div>
+  <div class="chart-box" style="height:280px;">
+    <canvas id="concChart"></canvas>
+  </div>
+</div>
+<div class="chart-wrap" style="flex:1;">
+  <h4>Agent时代的显存分配</h4>
+  <div class="chart-desc">2K传统对话 vs 8K Agent工作流</div>
+  <div class="chart-box" style="height:280px;">
+    <canvas id="pieChart"></canvas>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ SECTION 4: GPU & HBM ═══════════════ -->
+<div class="section-title"><span class="section-num">4</span> GPU与HBM：推理的"物理天花板"</div>
+
+<p style="margin:8px 0 12px;">
+  所有Token的计算、所有KV-Cache的存储，最终都发生在GPU的<span class="hl-blue">HBM（高带宽内存）</span>上。HBM决定了两件事：
+</p>
+
+<div style="display:flex;gap:16px;margin:16px 0;">
+<div class="bubble" style="flex:1;border-color:var(--deep-orange);">
+  <span class="emoji">📦</span><strong>容量 = 能装多少</strong><br>
+  HBM容量决定了GPU能同时容纳多大的模型权重 + 多少用户的KV-Cache。<br>
+  <span class="note-tag orange">80GB H100</span> → 勉强装下70B模型+少量KV-Cache<br>
+  <span class="note-tag orange">288GB GB300</span> → 可装200B模型+大量并发KV-Cache
+</div>
+<div class="bubble" style="flex:1;border-color:var(--deep-blue);">
+  <span class="emoji">🚀</span><strong>带宽 = 能跑多快</strong><br>
+  推理本质是"读取权重 → 计算 → 输出Token"。Token生成速度 ≈ HBM带宽 ÷ 模型大小。<br>
+  <span class="note-tag blue">3.35 TB/s H100</span> → 70B模型约 24 T/s/user<br>
+  <span class="note-tag blue">12 TB/s GB300</span> → 70B模型约 86 T/s/user
+</div>
+</div>
+
+<div class="chart-wrap">
+  <h4>GPU代际演进：HBM容量 × 带宽 × 推理效率</h4>
+  <div class="chart-desc">每一代GPU的HBM显存增长如何直接提升推理能力</div>
+  <div class="chart-box">
+    <canvas id="gpuChart"></canvas>
+  </div>
+</div>
+
+<div class="key-point">
+  <div style="font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;font-size:18px;text-align:center;">为什么推理是"Memory-Bound"而非"Compute-Bound"？</div>
+  <div style="margin:8px 0;font-size:14px;">
+    <span class="hl-blue">推理（生成Token）</span>不像训练那样需要大量矩阵乘法。推理的瓶颈在于：每生成1个Token，都需要从HBM中<strong>完整读取一遍模型权重</strong>。<br><br>
+    <span class="note-tag yellow">算力利用率</span> H100推理时GPU算力利用率仅 1-5%，99%的时间在等HBM "喂数据"。<br>
+    <span class="note-tag pink">所以</span> HBM带宽是推理速度的决定性瓶颈 → 这就是为什么每代GPU都在拼HBM升级。
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 5: Chain Amplification ═══════════════ -->
+<div class="section-title"><span class="section-num">5</span> 链路放大效应：1个Token背后的连锁反应</div>
+
+<!-- SVG: Amplification chain -->
+<div class="svg-wrap">
+<svg viewBox="0 0 960 200" width="100%" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97757"/>
+    </marker>
+  </defs>
+  <!-- Step 1 -->
+  <rect x="10" y="30" width="180" height="140" rx="14" fill="#fff5ea" stroke="#e8a020" stroke-width="2"/>
+  <text x="100" y="62" text-anchor="middle" font-family="Ma Shan Zheng, Ma Shan Zheng Local, cursive" font-size="17" fill="#333">Context ×2</text>
+  <text x="100" y="88" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="15" fill="#888">4K → 8K</text>
+  <text x="100" y="120" text-anchor="middle" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif" font-size="13" fill="#555">Token消耗量</text>
+  <text x="100" y="142" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="24" fill="#d97757" font-weight="700">×2</text>
+
+  <line x1="196" y1="100" x2="248" y2="100" stroke="#d97757" stroke-width="2.5" marker-end="url(#arr2)"/>
+
+  <!-- Step 2 -->
+  <rect x="254" y="30" width="180" height="140" rx="14" fill="#eef5ff" stroke="#4a90c4" stroke-width="2"/>
+  <text x="344" y="62" text-anchor="middle" font-family="Ma Shan Zheng, Ma Shan Zheng Local, cursive" font-size="17" fill="#333">KV-Cache</text>
+  <text x="344" y="88" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="15" fill="#888">线性增长</text>
+  <text x="344" y="120" text-anchor="middle" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif" font-size="13" fill="#555">显存占用</text>
+  <text x="344" y="142" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="24" fill="#4a90c4" font-weight="700">×2</text>
+
+  <line x1="440" y1="100" x2="492" y2="100" stroke="#d97757" stroke-width="2.5" marker-end="url(#arr2)"/>
+
+  <!-- Step 3 -->
+  <rect x="498" y="30" width="180" height="140" rx="14" fill="#fff0f0" stroke="#c25450" stroke-width="2"/>
+  <text x="588" y="62" text-anchor="middle" font-family="Ma Shan Zheng, Ma Shan Zheng Local, cursive" font-size="17" fill="#333">可用并发数</text>
+  <text x="588" y="88" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="15" fill="#888">显存被挤占</text>
+  <text x="588" y="120" text-anchor="middle" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif" font-size="13" fill="#555">单卡服务能力</text>
+  <text x="588" y="142" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="24" fill="#c25450" font-weight="700">÷2</text>
+
+  <line x1="684" y1="100" x2="736" y2="100" stroke="#d97757" stroke-width="2.5" marker-end="url(#arr2)"/>
+
+  <!-- Step 4 -->
+  <rect x="742" y="30" width="200" height="140" rx="14" fill="#f0fff0" stroke="#788c5d" stroke-width="2"/>
+  <text x="842" y="62" text-anchor="middle" font-family="Ma Shan Zheng, Ma Shan Zheng Local, cursive" font-size="17" fill="#333">需要的GPU数量</text>
+  <text x="842" y="88" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="15" fill="#888">维持同等吞吐</text>
+  <text x="842" y="120" text-anchor="middle" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif" font-size="13" fill="#555">GPU/HBM需求</text>
+  <text x="842" y="142" text-anchor="middle" font-family="Caveat, Caveat Local, cursive" font-size="24" fill="#788c5d" font-weight="700">×2~3</text>
+  <text x="842" y="164" text-anchor="middle" font-family="ZCOOL XiaoWei, ZCOOL XiaoWei Local, serif" font-size="11" fill="#888">(含带宽瓶颈放大)</text>
+</svg>
+</div>
+
+<div class="bubble top">
+  <span class="emoji">⚡</span>
+  <strong>放大效应总结：</strong>Context翻倍 → Token翻倍 → KV-Cache翻倍 → 并发减半 → GPU需求翻倍以上。这就是为什么<span class="hl-pink">Agent时代</span>（平均Context从2K→8K，增4倍）对GPU/HBM的需求不是4倍，而是<span class="hl-yellow">6-8倍</span>——因为还有带宽瓶颈和batch效率下降的复合效应。
+</div>
+
+<!-- ═══════════════ SECTION 6: Interactive Calculator ═══════════════ -->
+<div class="section-title"><span class="section-num">6</span> 动手算一算：你的场景需要多少HBM？</div>
+
+<div class="calc-box">
+  <h4>🧮 KV-Cache & GPU 需求计算器</h4>
+  <div class="calc-row">
+    <label>模型大小：</label>
+    <select id="modelSize">
+      <option value="8">8B (如 Llama 3 8B)</option>
+      <option value="70" selected>70B (如 Llama 3 70B)</option>
+      <option value="200">~200B (如 Claude级)</option>
+      <option value="400">~400B MoE (如 Mixtral/DeepSeek)</option>
+    </select>
+  </div>
+  <div class="calc-row">
+    <label>Context长度：</label>
+    <select id="ctxLen">
+      <option value="2048">2K (传统对话)</option>
+      <option value="4096">4K (标准)</option>
+      <option value="8192" selected>8K (Agent平均)</option>
+      <option value="32768">32K (长文档)</option>
+      <option value="131072">128K (全窗口)</option>
+    </select>
+  </div>
+  <div class="calc-row">
+    <label>并发用户数：</label>
+    <input type="number" id="concUsers" value="64" min="1" max="10000" style="width:100px;">
+  </div>
+  <div class="calc-row">
+    <label>精度格式：</label>
+    <select id="dtype">
+      <option value="2">FP16 (2 bytes)</option>
+      <option value="1" selected>FP8 (1 byte)</option>
+    </select>
+  </div>
+  <div class="calc-row">
+    <label>目标GPU：</label>
+    <select id="gpuType">
+      <option value="80">H100 (80GB HBM3)</option>
+      <option value="141">H200 (141GB HBM3e)</option>
+      <option value="192" selected>B200 (192GB HBM3e)</option>
+      <option value="288">GB300 (288GB HBM3e)</option>
+    </select>
+  </div>
+  <button onclick="calculate()" style="margin-top:12px;padding:8px 24px;background:var(--deep-blue);color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-family:inherit;">计算 →</button>
+
+  <div class="calc-result" id="calcResult">
+    点击"计算"查看结果...
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 7: Summary ═══════════════ -->
+<div class="section-title"><span class="section-num">7</span> 全景总结：一张图看懂全链路</div>
+
+<div class="chart-wrap">
+  <h4>Token消耗增长 → GPU需求 → HBM需求：三线联动 (2024-2026)</h4>
+  <div class="chart-desc">指数标准化(24Q1=100)，展示链路放大效应 — GPU增长快于Token，因为Context变长放大了需求</div>
+  <div class="chart-box" style="height:380px;">
+    <canvas id="chainChart"></canvas>
+  </div>
+</div>
+
+<div class="key-point" style="border-color:var(--deep-orange);background:rgba(217,119,87,0.06);">
+  <div style="font-family:'Ma Shan Zheng','Ma Shan Zheng Local',cursive;font-size:22px;text-align:center;color:var(--deep-orange);">📌 记住这三条核心逻辑</div>
+  <div style="margin-top:10px;font-size:15px;">
+    <span class="note-tag yellow">逻辑1</span> <strong>Context越长 → KV-Cache越大 → 单卡能服务的用户越少</strong> — 128K上下文比4K上下文，单用户显存占用增加32倍<br><br>
+    <span class="note-tag blue">逻辑2</span> <strong>推理是Memory-Bound → HBM带宽决定生成速度</strong> — GPU算力利用率仅1-5%，99%时间在等HBM读数据<br><br>
+    <span class="note-tag pink">逻辑3</span> <strong>Agent放大全链路 → 35x Token × 4x Context = 指数级HBM需求</strong> — 这就是为什么HBM供不应求，SK Hynix产能sold out到2026年底
+  </div>
+</div>
+
+<div class="footer">
+  Sketchnote Style Visual Explainer · Context × Token × GPU × HBM · 2026.03<br>
+  Data: NVIDIA Technical Blog, SemiAnalysis, OpenRouter State of AI, a16z
+</div>
+
+</div><!-- .canvas -->
+
+<script>
+const ff = 'Ma Shan Zheng, Noto Sans SC, cursive';
+Chart.defaults.font.family = 'ZCOOL XiaoWei, Noto Sans SC, serif';
+
+// ═══ Chart 1: KV-Cache vs Context ═══
+const ctxLens = [1, 2, 4, 8, 16, 32, 64, 128];
+// 70B model: 80 layers, 64 KV heads (GQA→8 KV heads), 128 dim, FP16
+// KV-Cache = 2 * 80 * 8 * 128 * seq_len * 2 bytes
+// = 2 * 80 * 8 * 128 * seq_len * 2 = 327680 * seq_len bytes
+// At 1K: 327680 * 1024 = 335 MB
+// Actually for 70B with GQA (8 KV heads): 2 * 80 * 8 * 128 * seqlen * 2
+const kvPerK = ctxLens.map(k => +(2 * 80 * 8 * 128 * k * 1024 * 2 / 1e9).toFixed(1));
+
+new Chart(document.getElementById('kvChart'), {
+  type: 'line',
+  data: {
+    labels: ctxLens.map(k => k + 'K'),
+    datasets: [{
+      label: '单用户 KV-Cache (GB)',
+      data: kvPerK,
+      borderColor: '#c25450', backgroundColor: 'rgba(194,84,80,0.08)',
+      borderWidth: 3, pointRadius: 7, pointBackgroundColor: '#c25450',
+      tension: 0.3, fill: true
+    },{
+      label: 'H100 单卡可用空间 (扣除权重后)',
+      data: ctxLens.map(() => 10),
+      borderColor: '#e8a020', borderWidth: 2, borderDash: [8, 4],
+      pointRadius: 0, fill: false
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { font: { size: 12 } } },
+      tooltip: {
+        callbacks: {
+          afterLabel: ctx => {
+            if (ctx.datasetIndex === 0) {
+              const gb = ctx.raw;
+              const maxUsers = Math.floor(10 / gb);
+              return `H100可并发: ~${maxUsers > 0 ? maxUsers : '<1'}个用户 (剩余10GB)`;
+            }
+          }
+        }
+      }
+    },
+    scales: {
+      y: { title: { display: true, text: '显存 (GB)' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+      x: { title: { display: true, text: 'Context Length' }, grid: { display: false } }
+    }
+  }
+});
+
+// ═══ Chart 2: Max concurrent users ═══
+const contexts = ['2K', '4K', '8K', '32K', '128K'];
+const kvSizes = [0.33, 0.67, 1.34, 5.37, 21.47]; // GB per user, 70B GQA FP16
+const availHBM = 10; // GB left on H100 pair after weights
+const maxConcurrent = kvSizes.map(kv => Math.max(1, Math.floor(availHBM / kv)));
+
+new Chart(document.getElementById('concChart'), {
+  type: 'bar',
+  data: {
+    labels: contexts,
+    datasets: [{
+      label: '最大并发用户数 (H100, 70B)',
+      data: maxConcurrent,
+      backgroundColor: contexts.map((_, i) => i <= 1 ? 'rgba(120,140,93,0.7)' : i <= 2 ? 'rgba(232,160,32,0.7)' : 'rgba(194,84,80,0.7)'),
+      borderRadius: 8, borderWidth: 1,
+      borderColor: contexts.map((_, i) => i <= 1 ? '#788c5d' : i <= 2 ? '#e8a020' : '#c25450')
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { title: { display: true, text: '并发用户数' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ═══ Chart 3: Pie - memory allocation ═══
+new Chart(document.getElementById('pieChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['模型权重', 'KV-Cache (64用户×8K)', '系统/碎片', '剩余可用'],
+    datasets: [{
+      data: [73, 18, 4, 5], // percentages of 192GB B200
+      backgroundColor: ['#6a9bcc', '#c25450', '#b0aea5', '#b8e6b8'],
+      borderWidth: 2, borderColor: '#f9f5ee'
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } },
+      title: { display: true, text: 'B200 (192GB) 显存分配 — Agent场景', font: { size: 14 } },
+      tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw}% (${(ctx.raw * 1.92).toFixed(0)}GB)` } }
+    }
+  }
+});
+
+// ═══ Chart 4: GPU evolution ═══
+const gpus = ['H100', 'H200', 'B200', 'GB300'];
+const hbmCap = [80, 141, 192, 288];
+const hbmBW = [3.35, 4.8, 8.0, 12.0];
+const inferPerf = [1, 1.7, 3.0, 5.2];
+
+new Chart(document.getElementById('gpuChart'), {
+  data: {
+    labels: gpus,
+    datasets: [
+      {
+        type: 'bar',
+        label: 'HBM容量 (GB)',
+        data: hbmCap,
+        backgroundColor: ['rgba(217,119,87,0.5)','rgba(217,119,87,0.6)','rgba(217,119,87,0.75)','rgba(217,119,87,0.9)'],
+        borderColor: '#d97757', borderWidth: 1, borderRadius: 8, yAxisID: 'y'
+      },
+      {
+        type: 'line',
+        label: 'HBM带宽 (TB/s)',
+        data: hbmBW,
+        borderColor: '#4a90c4', pointBackgroundColor: '#4a90c4', pointRadius: 7,
+        borderWidth: 3, tension: 0.3, yAxisID: 'y1'
+      },
+      {
+        type: 'line',
+        label: '推理性能 (vs H100)',
+        data: inferPerf,
+        borderColor: '#788c5d', pointBackgroundColor: '#788c5d', pointRadius: 7,
+        borderWidth: 3, borderDash: [8, 4], tension: 0.3, yAxisID: 'y1'
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { font: { size: 12 }, usePointStyle: true } } },
+    scales: {
+      y: { title: { display: true, text: 'HBM (GB)' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+      y1: { position: 'right', title: { display: true, text: '带宽(TB/s) / 性能倍数' }, grid: { display: false }, min: 0 },
+      x: { ticks: { font: { size: 14, weight: 700 } }, grid: { display: false } }
+    }
+  }
+});
+
+// ═══ Chart 5: Chain index ═══
+const qs = ['24Q1','24Q2','24Q3','24Q4','25Q1','25Q2','25Q3','25Q4','26Q1','26Q2','26Q3','26Q4'];
+const tokI = [100, 200, 450, 1000, 2000, 3000, 4500, 6250, 7500, 10625, 14325, 18500];
+const gpuI = [100, 230, 570, 1400, 3200, 5100, 8200, 11800, 14500, 21000, 29000, 38000];
+const hbmI = [100, 210, 500, 1200, 2700, 4200, 6500, 9200, 11000, 16000, 22000, 28500];
+
+new Chart(document.getElementById('chainChart'), {
+  type: 'line',
+  data: {
+    labels: qs,
+    datasets: [
+      {
+        label: 'Token消耗', data: tokI,
+        borderColor: '#d97757', backgroundColor: 'rgba(217,119,87,0.04)',
+        borderWidth: 3, pointRadius: 4, tension: 0.35, fill: true
+      },
+      {
+        label: 'GPU需求 (含Context放大)', data: gpuI,
+        borderColor: '#4a90c4', backgroundColor: 'rgba(74,144,196,0.04)',
+        borderWidth: 3, pointRadius: 4, tension: 0.35, fill: true
+      },
+      {
+        label: 'HBM需求', data: hbmI,
+        borderColor: '#788c5d', backgroundColor: 'rgba(120,140,93,0.04)',
+        borderWidth: 3, pointRadius: 4, tension: 0.35, fill: true
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { font: { size: 12 }, usePointStyle: true } },
+      tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${(ctx.raw/100).toFixed(0)}x vs 24Q1` } }
+    },
+    scales: {
+      y: {
+        type: 'logarithmic',
+        title: { display: true, text: '增长指数 (24Q1=100, log)' },
+        grid: { color: 'rgba(0,0,0,0.04)' }
+      },
+      x: { grid: { color: 'rgba(0,0,0,0.03)' } }
+    }
+  }
+});
+
+// ═══ Calculator ═══
+function calculate() {
+  const modelB = parseInt(document.getElementById('modelSize').value);
+  const ctx = parseInt(document.getElementById('ctxLen').value);
+  const users = parseInt(document.getElementById('concUsers').value);
+  const dtypeBytes = parseInt(document.getElementById('dtype').value);
+  const gpuHBM = parseInt(document.getElementById('gpuType').value);
+
+  // Model params
+  const layers = modelB <= 8 ? 32 : modelB <= 70 ? 80 : modelB <= 200 ? 96 : 120;
+  const kvHeads = modelB <= 8 ? 8 : modelB <= 70 ? 8 : 16; // GQA
+  const headDim = 128;
+
+  // Weight memory (FP16)
+  const weightGB = modelB * 2; // rough: 2 bytes per param
+
+  // KV-Cache per user
+  const kvPerUser = 2 * layers * kvHeads * headDim * ctx * dtypeBytes / 1e9;
+
+  // Total KV for all users
+  const kvTotal = kvPerUser * users;
+
+  // Total HBM needed
+  const totalHBM = weightGB + kvTotal + weightGB * 0.05; // 5% overhead
+
+  // GPUs needed
+  const gpusNeeded = Math.ceil(totalHBM / gpuHBM);
+
+  // HBM total
+  const hbmTotal = gpusNeeded * gpuHBM;
+
+  const gpuNames = {80:'H100', 141:'H200', 192:'B200', 288:'GB300'};
+
+  document.getElementById('calcResult').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <strong>模型权重显存：</strong><span class="big">${weightGB} GB</span><br>
+        <span style="font-size:12px;color:#888;">${modelB}B参数 × FP16(2B)</span>
+      </div>
+      <div>
+        <strong>单用户KV-Cache：</strong><span class="big">${kvPerUser.toFixed(2)} GB</span><br>
+        <span style="font-size:12px;color:#888;">${layers}层 × ${kvHeads}KV头 × ${headDim}维 × ${ctx}T × ${dtypeBytes === 2 ? 'FP16' : 'FP8'}</span>
+      </div>
+      <div>
+        <strong>${users}用户总KV-Cache：</strong><span class="big">${kvTotal.toFixed(1)} GB</span>
+      </div>
+      <div>
+        <strong>总HBM需求：</strong><span class="big">${totalHBM.toFixed(1)} GB</span><br>
+        <span style="font-size:12px;color:#888;">权重 + KV-Cache + 开销</span>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:10px 16px;background:rgba(217,119,87,0.08);border-radius:8px;text-align:center;">
+      需要 <span class="big">${gpusNeeded}张 ${gpuNames[gpuHBM]}</span> (共${hbmTotal}GB HBM)
+      &nbsp;→ 平均每用户 <span class="big">${(hbmTotal / users).toFixed(1)} GB</span> HBM
+    </div>
+  `;
+}
+// Auto-calculate on load
+calculate();
+</script>
+</body>
+</html>
