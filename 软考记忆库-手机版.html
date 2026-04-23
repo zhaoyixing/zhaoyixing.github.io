@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f172a">
+<title>软考记忆库 · 手机滑卡版</title>
+<style>
+:root{
+  --bg:#f5f6f8; --fg:#0f172a; --muted:#64748b; --card:#ffffff; --border:#e2e8f0;
+  --primary:#2563eb; --purple:#7c3aed; --amber:#d97706; --green:#16a34a; --red:#dc2626; --pink:#db2777;
+  --shadow:0 6px 24px rgba(15,23,42,.08);
+  --pad:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0f172a; --fg:#f1f5f9; --muted:#94a3b8; --card:#1e293b; --border:#334155; --shadow:0 6px 24px rgba(0,0,0,.35); }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;overscroll-behavior:none;}
+body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
+
+/* ---------- 顶部 tab ---------- */
+.tabs{display:flex;gap:0;padding:10px 12px 8px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.tab{flex:1;text-align:center;padding:8px 4px;border-radius:10px;font-size:13.5px;color:var(--muted);font-weight:600;transition:all .15s;}
+.tab.active{background:var(--card);color:var(--primary);box-shadow:var(--shadow);}
+.tab .cnt{display:block;font-size:10.5px;font-weight:500;opacity:.7;margin-top:1px;}
+
+/* ---------- 卡片滑动容器 ---------- */
+.deck{position:relative;height:calc(100dvh - 110px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:hidden;}
+.track{display:flex;height:100%;transition:transform .28s cubic-bezier(.25,.1,.25,1);will-change:transform;}
+.card{flex:0 0 100%;height:100%;padding:14px 14px 20px;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.card::-webkit-scrollbar{display:none;}
+.card-inner{background:var(--card);border-radius:16px;padding:18px 18px 22px;box-shadow:var(--shadow);min-height:calc(100% - 4px);}
+
+/* ---------- 卡片内容 ---------- */
+.card h2{font-size:19px;margin:0 0 4px;line-height:1.35;}
+.card .sub{color:var(--muted);font-size:12.5px;margin-bottom:10px;}
+.card .tags{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 12px;}
+.card .tag{font-size:11.5px;padding:2px 8px;border-radius:10px;background:#eaf4ff;color:#0b5cad;}
+@media (prefers-color-scheme: dark){ .card .tag{background:#1e3a5f;color:#93c5fd;} }
+.card .tag.theme{background:#f3e8ff;color:#6b21a8;}
+@media (prefers-color-scheme: dark){ .card .tag.theme{background:#3b1d5c;color:#d8b4fe;} }
+
+.block{margin:12px 0;padding:10px 12px;border-radius:10px;border-left:3px solid var(--primary);background:rgba(37,99,235,.06);}
+.block.ref{border-left-color:var(--green);background:rgba(22,163,74,.07);}
+.block.pit{border-left-color:var(--red);background:rgba(220,38,38,.07);}
+.block.tpl{border-left-color:var(--purple);background:rgba(124,58,237,.07);}
+.block.q  {border-left-color:var(--amber);background:rgba(217,119,6,.07);}
+.block h4{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;display:flex;align-items:center;gap:6px;}
+.block p, .block li{margin:4px 0;font-size:14.5px;}
+.block ol{padding-left:18px;margin:4px 0;}
+.gist{font-size:15px;color:var(--fg);line-height:1.7;}
+.qitem{margin:6px 0;font-size:14px;}
+.qitem b{color:var(--amber);margin-right:4px;}
+.qitem .s{color:var(--muted);font-size:12px;margin-left:4px;}
+
+/* ---------- 变形题翻面卡 ---------- */
+.flip{display:flex;flex-direction:column;gap:14px;}
+.flip .face{background:var(--card);border-radius:12px;padding:16px 16px 18px;border:1px solid var(--border);}
+.flip .type{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;background:#fce7f3;color:#9d174d;margin-bottom:8px;}
+@media (prefers-color-scheme: dark){ .flip .type{background:#500724;color:#fbcfe8;} }
+.flip .type.type-选择{background:#dbeafe;color:#1e40af;}
+.flip .type.type-填空{background:#fef3c7;color:#854d0e;}
+.flip .type.type-简答{background:#dcfce7;color:#166534;}
+.flip .type.type-论文要点{background:#f3e8ff;color:#6b21a8;}
+.flip .q{font-size:16.5px;font-weight:600;line-height:1.55;}
+.flip .from{color:var(--muted);font-size:12px;margin-top:8px;}
+.flip .reveal{margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--primary);color:#fff;font-size:14px;font-weight:600;text-align:center;border:0;width:100%;cursor:pointer;}
+.flip .reveal:active{opacity:.85;}
+.flip .ans-wrap{display:none;}
+.flip.revealed .ans-wrap{display:block;}
+.flip.revealed .reveal{display:none;}
+.flip .ans{background:linear-gradient(135deg,rgba(22,163,74,.1),rgba(22,163,74,.05));border-left:3px solid var(--green);padding:12px 14px;border-radius:10px;font-size:15px;line-height:1.6;}
+.flip .explain{margin-top:10px;padding:10px 14px;border-radius:10px;background:rgba(217,119,6,.08);border-left:3px solid var(--amber);font-size:13.5px;color:var(--muted);}
+
+/* ---------- 高频 Top20 ---------- */
+.hotitem{padding:10px 12px;border-radius:10px;background:var(--card);border:1px solid var(--border);margin:8px 0;display:flex;align-items:flex-start;gap:10px;}
+.hotitem .rk{flex-shrink:0;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;background:linear-gradient(135deg,#fbbf24,#ef4444);color:#fff;}
+.hotitem .body{flex:1;min-width:0;}
+.hotitem .body .t{font-weight:600;font-size:14.5px;line-height:1.4;}
+.hotitem .body .meta{color:var(--muted);font-size:12px;margin-top:2px;}
+.hotitem .heat{display:inline-block;width:54px;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px;}
+.hotitem .heat > span{display:block;height:100%;background:linear-gradient(90deg,#fbbf24,#ef4444);}
+.hotitem .hx{color:var(--muted);font-size:11.5px;margin-left:6px;}
+
+/* ---------- 底部进度 ---------- */
+.bottom{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom);padding:8px 12px 10px;background:linear-gradient(180deg,transparent,var(--bg) 40%);display:flex;align-items:center;gap:10px;z-index:20;}
+.prog{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.prog > span{display:block;height:100%;background:var(--primary);transition:width .2s;}
+.idx{font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+.nav-btn{border:0;background:var(--card);color:var(--fg);width:36px;height:36px;border-radius:50%;font-size:18px;box-shadow:var(--shadow);cursor:pointer;}
+.nav-btn:active{transform:scale(.92);}
+.nav-btn:disabled{opacity:.35;}
+
+/* ---------- 引导提示 ---------- */
+.hint{position:absolute;top:50%;transform:translateY(-50%);color:var(--muted);font-size:11.5px;pointer-events:none;opacity:.4;padding:4px 8px;background:var(--card);border-radius:8px;border:1px solid var(--border);}
+.hint.l{left:6px;}
+.hint.r{right:6px;}
+
+/* ---------- 通用 ---------- */
+b, strong{color:var(--fg);}
+.small{font-size:12.5px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="case">案例<span class="cnt" id="c-case"></span></div>
+  <div class="tab" data-tab="kp">知识点<span class="cnt" id="c-kp"></span></div>
+  <div class="tab" data-tab="var">变形题<span class="cnt" id="c-var"></span></div>
+  <div class="tab" data-tab="hot">高频<span class="cnt" id="c-hot"></span></div>
+</div>
+
+<div class="deck" id="deck">
+  <div class="track" id="track"></div>
+  <span class="hint l">← 滑</span>
+  <span class="hint r">滑 →</span>
+</div>
+
+<div class="bottom">
+  <button class="nav-btn" id="prev">‹</button>
+  <span class="idx" id="idx">0/0</span>
+  <div class="prog"><span id="progbar"></span></div>
+  <button class="nav-btn" id="next">›</button>
+</div>
+
+<script id="data" type="application/json">{"cases":[{"id":"case-2026h1-2-1","title":"AI 智能客服系统升级（环球E购）","theme":"AI / LLM / RAG / Agent / MCP","exam":"2026上半年·系统架构设计师·第2套 案例1","score":"25分","tags":["AI基础","机器学习","RAG","微调","AI Agent","MCP"],"gist":"跨国电商\"环球E购\"升级智能客服。原系统基于关键词匹配+规则引擎，痛点：① 无法理解口语化/多语言复杂问；② 各国关税/禁运清单频繁更新，知识库维护成本高；③ 无法多步推理（如\"含锂电池的蓝牙耳机能否寄美国\"）；④ 大量…","questions":[{"no":"1","score":"5分","text":"AI 定义、分类、关键技术填空（5 空）"},{"no":"2","score":"6分","text":"ML 按学习模式分类填表（6 空）"},{"no":"3","score":"8分","text":"模型微调 vs RAG 场景选择填表（4 空）"},{"no":"4","score":"6分","text":"(1) Agent 解决哪个痛点，举例（3分）；(2) MCP 核心作用与如何简化集成（3分）"}],"refPoints":["Q1：(1)获取知识 (2)强人工智能 (3)自然语言处理 (4)知识图谱 (5)机器学习","Q2：(1)监督学习 (2)无监督 (3)半监督 (4)强化学习 (5)传统机器学习 (6)深度学习","Q3：(1)微调 (2)RAG (3)RAG (4)微调","Q4：(1) Agent 解决\"自动化程度低\"痛点。例：用户说\"帮我预约明天回电\"→ Agent 调日历 API 创建事件 + 调座席系统分配任务，端到端自动化。(2) MCP 提供标准化协议，让模型以统一方式发现/调用各种外部工具（类似 USB）。Agent 只需实现 MCP 客户端，所有工具按 MCP 暴露接口，无需为每个工具写定制代码。"],"pitfall":["❌ 关键技术写\"LLM / 语音识别 / 具身智能\"—— ","❌ ML 分类写\"少样本 / 端到端\"—— 不是按学习模式分类的 4 大类。","❌ Agent 题答\"解决多个痛点\"—— 3 分题通常只要命中"],"template":"AI 关键技术口诀：自然、视觉、知图、交互、虚实、学习（6 项） 微调 vs RAG 决策：知识频更/法规/可追溯 → RAG；风格/任务模式固化/低延迟 → 微调。 Agent 3 段式：① 定位痛点 → ② Agent 动作链(调API/查库/规划) → ③ 价值(端到端自动化)。"},{"id":"case-2026h1-2-2","title":"一网通办 政务服务 Web 平台","theme":"微服务 / 服务注册发现 / 分层 / 等保三级","exam":"2026上半年·系统架构设计师·第2套 案例2","score":"25分","tags":["微服务","服务注册发现","分层架构","等保三级","负载均衡","熔断降级"],"gist":"省级\"一网通办\"Web 平台整合 30+ 地市政务服务，支持 PC 网页端 / 政务 APP / 自助终端。核心要求：① 微服务+弹性扩缩容（办税期高峰）；② 符合等保三级；③ 对接各地市数据中台、支持跨地市共享+离线办…","questions":[{"no":"1","score":"6分","text":"300 字内：服务注册与发现的定义 + 核心价值"},{"no":"2","score":"13分","text":"从候选项 (a)~(n) 中选填架构图 13 个空"},{"no":"3","score":"6分","text":"等保三级+百万并发 安全维度策略（≥3 点）"}],"refPoints":["Q1 定义：微服务核心组件。服务提供者启动时将自身信息(IP/端口/服务名)注册到注册中心，消费者通过注册中心查询可用实例，实现服务间动态调用，无需硬编码服务地址。","Q1 价值：① 动态扩缩容适配（注册中心自动感知推送）；② 服务解耦（各地市独立注册）；③ 故障自动剔除（健康监控，剔除故障实例）。","Q2 填空：(1)a (2)b (3)g (4)l (5)h (6)d (7)k (8)e (9)i (10)f (11)c (12)j (13)m","Q3：① 身份认证：密码+短信+电子签章，对接省政务统一认证；② 数据安全：TLS1.3+存储脱敏+国密；③ 权限管控：RBAC+ABAC，细到\"事项-操作-数据\"三级；④ 审计监控：日志不可篡改+异常告警。"],"pitfall":["❌ 注册发现定义写得太泛 → 丢失\"","❌ 价值只答\"解耦+高可用\" → 漏掉\"","❌ 架构图 (9)~(12) 位置容易错位（数据加密/审计在\"服务支撑层\"，税务/不动产在\"业务层\"）。","❌ 安全只写\"加密/认证\" → 漏 RBAC+ABAC / 多因子 / 日志不可篡改。"],"template":"注册发现 2 段答：① 定义（注册中心+提供消费模型+无需硬编码）；② 3 价值（扩缩容/解耦/故障剔除）。 等保三级四件套： 四件套关键技术词 认证多因子(密码+短信+电子签章/人脸) 权限RBAC+ABAC+三级权限 加密TLS1.3(传输)+国密+脱敏(存储) 审计日志不可篡改+追溯+异常告警 Web 微服务 5 层：展示→网关&负载→业务→支撑→持久"},{"id":"case-2026h1-2-3","title":"云购商城 缓存架构升级","theme":"Redis / Cache-Aside / 缓存三大问题 / 布隆过滤","exam":"2026上半年·系统架构设计师·第2套 案例3","score":"25分","tags":["Redis","Cache-Aside","缓存模式","缓存穿透","布隆过滤器"],"gist":"大型电商\"云购商城\"核心交易系统升级。原单数据库架构响应慢。新架构引入 Redis 集群 多级缓存，采用 Cache-Aside 模式。…","questions":[{"no":"1","score":"6分","text":"引入缓存后，读/写请求的数据访问路径变化"},{"no":"2","score":"5分","text":"三种缓存模式（Cache-Aside/Read-Write-Through/Write-Behind）填空 5 空"},{"no":"3","score":"4分","text":"Redis 分布式的三种集群架构？项目选哪一种"},{"no":"4","score":"10分","text":"布隆过滤器解决缓存穿透流程图填空（5 空）"}],"refPoints":["Q1：读：先查 Redis，命中返；未命中查 DB，回写缓存后返。写：先更新 DB，然后删除缓存（不是双写）。","Q2：(1)C (2)A (3)D (4)B (5)E","Q3：① 主从、哨兵、集群(Cluster)；② 项目选主从模式。","Q4：请求 → 布隆过滤器判断是否可能存在 → 不存在直接返；存在则查 Redis → 命中返；未命中查 DB → 回写 Redis → 返。"],"pitfall":["❌❌ Cache-Aside 写操作写成\"双写 DB+Redis\"—— 正解是\"","❌ 穿透/击穿/雪崩混淆：穿透=不存在 key(布隆)；击穿=热 key 过期(互斥锁)；雪崩=大量同时失效(随机 TTL+多级)。","❌ \"哨兵 = 集群\"—— 哨兵是主从+自动故障转移；真正分片是 Redis Cluster。"],"template":"Cache-Aside 答题：读=查缓存→未命中→DB→回写；写=更 DB + 删缓存。 三大难题救命表：穿透→布隆+空值；击穿→互斥锁/逻辑过期；雪崩→随机 TTL+多级+高可用。 Redis 三模式：主从(读写分离)→哨兵(HA)→Cluster(分片)。"},{"id":"case-2026h1-1-1","title":"医院电子病历系统 · 质量属性 / 架构评估","theme":"质量属性 / 效用树 / ATAM 四点 / 性能战术","exam":"2026上半年·系统架构设计师·第1套 案例1","score":"25分","tags":["质量属性","效用树","ATAM","敏感点","权衡点","风险点","性能战术"],"gist":"医院电子病历系统。需求/质量属性描述 (a)~(n)： (a) 阅读长文档自动调滚动速度 → 易用性 (b) 病历严格保密 → 安全性 (c) 500ms 内响应查询 → 性能 (d) 7×24，中断快速恢复 → 可用性…","questions":[{"no":"1","score":"10分","text":"效用树 (1)~(4) 填属性；(5)~(10) 从 (a)~(n) 中选"},{"no":"2","score":"8分","text":"300 字内：风险/非风险/敏感/权衡 4 点定义 + 各选 1 例"},{"no":"3","score":"7分","text":"性能战术 3 类（资源需求/管理/仲裁），(a)~(g) 填入 (1)~(3)"}],"refPoints":["Q1：(1)易用性 (2)安全性 (3)可用性 (4)可修改性；(5)(6) c、e；(7)m；(8)h；(9)d；(10)n","Q2 定义： 敏感点=影响某个质量属性的构件/决策特性 权衡点=影响多个质量属性的点（多属性的敏感点） 风险点=潜在有隐患的决策 非风险点=不会带来隐患的描述","匹配：敏感(k) / 风险(l) / 非风险(i) / 权衡(j)","Q3： (1) 资源需求：a 减计算开销 / b 控制采样频率 / d 管理事件率 (2) 资源管理：c 增可用资源 / f 维持多副本 (3) 资源仲裁：e FIFO / g 固定优先级"],"pitfall":["❌ ","❌ ","❌ 敏感点定义漏\"","❌ 远程调试接口 (n) 对应\"可测试性\"而非\"可维护性\"。"],"template":"ATAM 四类口诀：\"单属性敏感，多属性权衡，有隐患风险，无负担非风险\"。 性能战术分类表： 类别本质战术 资源需求做更少的事减计算开销、管理事件率、控采样频率 资源管理提供更多资源引入并发、增可用资源、维持多副本 资源仲裁合理分配FIFO、固定优先级、动态优先级 质量属性 6 项口诀：\"性可易安改测\"（性能/可用/易用/安全/可修改/可测试）。"},{"id":"case-2026h1-1-2","title":"航空公司 Ramp Coordination · ESB / SOA 集成","theme":"SOA / ESB / 微服务 / ISA 体系结构","exam":"2026上半年·系统架构设计师·第1套 案例2","score":"25分","tags":["SOA","ESB","企业服务总线","微服务","ISA"],"gist":"航空公司改造 70/80 年代业务系统。Ramp Coordination（飞机降落到起飞的地面协调）为试点：Ramp Coordinator 协调检查机位、卸/装货。信息系统需从 乘务人员管理系统(大型主机)、订票系统…","questions":[{"no":"1","score":"6分","text":"信息系统 4 种架构模型：单机、(1)【C/S,B/S】、(2)、数据交换总线。本项目用 (2)"},{"no":"2","score":"9分","text":"ESB 集成图 6 空填空"},{"no":"3","score":"6分","text":"微服务 3 优点 + 3 挑战"},{"no":"4","score":"4分","text":"ISA 总体框架图 4 空填空"}],"refPoints":["Q1：(1) 客户机/服务器 C/S (含 B/S) (2) 面向服务架构 SOA","Q2：(1)ESB (2)订票系统 (3)航班信息 (4)乘务人员管理系统 (5)机务人员信息 (6)机务人员管理系统","Q3 优点(任 3)：① 小服务专注；② 化整为零易小团队开发；③ 独立部署独立运行；④ 支持异构；⑤ 故障隔离容错强；⑥ 松耦合易扩展。","Q3 挑战(任 3)：① 分布式数据一致性；② 测试复杂性；③ 运维复杂性。","Q4：(1)战略系统 (2)(3) 业务系统/应用系统(可互换) (4)信息基础设施"],"pitfall":["❌❌ 问题 1 写\"分层服务架构\"—— 不是 4 种模型之一。标准是 ","❌ 问题 2 (5)(6) \"信息 vs 系统\"位置互换 —— 内容-系统对的填空顺序要对齐。","❌ 问题 4 顺序倒置 —— ISA 是自上而下\"战略→业务/应用→基础设施\"。","❌ 微服务优点漏\"独立部署/异构/容错\" —— 这三个是高频关键词。"],"template":"4 模型演化：单机 → C/S → SOA → 数据总线。 ISA 金字塔： 战略系统（最顶） ├─ 业务系统(业务流程) ├─ 应用系统(IT 应用) └─ 信息基础设施(技术底座) 微服务 3+3： 优点挑战 独立部署运行分布式数据一致性 支持异构技术栈服务间依赖测试复杂 故障隔离容错强运维监控复杂"},{"id":"case-2026h1-1-4","title":"电商 Redis 订单处理 · 分片 / 类型 / 淘汰 / 锁","theme":"Redis 分片 / 数据类型 / LRU / 布隆 / 分布式锁","exam":"2026上半年·系统架构设计师·第1套 案例4","score":"25分","tags":["Redis","分片","一致性哈希","数据类型","LRU","布隆过滤器","分布式锁"],"gist":"大型电商节假日订单量爆发式增长。订单处理系统需快速响应高并发，完成订单创建、库存扣减、支付验证。引入 Redis 做缓存、分片存储订单号/用户信息，利用高性能 KV + 原子操作 + 事务 保证一致性。…","questions":[{"no":"1","score":"6分","text":"Redis 数据分片：(a)(b) 范围分片特点；(c)(d) 哈希分片特点；王工的第 3 种方案是？"},{"no":"2","score":"3分","text":"场景选型：(1)用户画像标签；(2)分布式锁；(3)周销量排行榜"},{"no":"3","score":"3分","text":"volatile-lru 和 allkeys-lru 共性、差异"},{"no":"4","score":"5分","text":"布隆过滤器解决什么问题？缺点？"},{"no":"5","score":"8分","text":"分布式锁的 (1) 性？避免死锁靠 (2)？保证唯一靠 (3)？"}],"refPoints":["Q1：(a) 取值范围 / (b) 不均匀 / (c) 哈希值 / (d) 均匀。","王工方案：一致性哈希（Consistent Hashing）。哈希环+虚拟节点映射到物理节点，扩容只调整部分数据，迁移成本低、易扩展。","Q2：(1) Set(标签集合) (2) String(SET NX EX) (3) ZSet(按销量 score 排序)","Q3：(1) 均遵循 LRU 原理；(2) 优先淘汰最近未被访问的数据；(3) volatile 范围=设置了过期时间的 key。","Q4：解决缓存穿透。缺点：① 假阳性（可能误判存在）；② 标准布隆不支持删除（需 Counting Bloom）；③ 不能获取元素本身。","Q5：(1) 互斥性 (2) 锁的过期时间(EX/PX) (3) NX(SET NX) 特性 + UUID 值"],"pitfall":["❌ 分布式锁存 Hash/Set —— 必须 String，SET NX 原子性只对 String。","❌ LRU vs LFU：LRU=最近访问时间；LFU=访问频次。","❌ 哈希分片=一致性哈希 —— 前者扩容全迁，后者只迁一段。","❌ 布隆解\"击穿\" —— 错，布隆解","❌ SETNX 不设过期 —— 持锁节点宕机会死锁，必须 EX/PX。"],"template":"选型决策表： 场景类型 计数/锁/序列化String 对象属性Hash 消息流/最新 NList 标签/去重/共同好友Set 排行榜/延时队列ZSet 分布式锁 4 步：① SET NX EX；② value=UUID；③ Lua 校验 DEL；④ 看门狗续期。"},{"id":"case-2026h1-1-5","title":"在线协作平台 · 负载均衡 + 有状态/无状态","theme":"LVS / HAProxy / Nginx / 会话 / 弹性","exam":"2026上半年·系统架构设计师·第1套 案例5","score":"25分","tags":["负载均衡","LVS","HAProxy","Nginx","有状态","无状态"],"gist":"企业在线协作平台支持实时文档编辑、资源发布/检索、身份认证。分布式+多微服务+负载均衡。DNS → 负载均衡器 → 应用服务器(Server 1~N) → 共享 DB 集群 + 分布式文件。架构用硬件负载均衡。…","questions":[{"no":"1","score":"8分","text":"(1)(2) 软件 LB 常见实现(除 Nginx 外)；(3)相同来源始终到同一服务器 → 哪种算法；(4) 按服务器性能差异 → 哪种算法"},{"no":"2","score":"6分","text":"100 字内：加权最小连接数的场景 + 与普通最小连接数的区别"},{"no":"3","score":"11分","text":"构件 (a)Identification (b)ResPublish (c)ResRetrieval (d)OnlineEdit。① 有状态 (1)、无状态 (2)；② Statistics Bean 为何无状态"}],"refPoints":["Q1：(1)(2) LVS、HAProxy；(3) 源地址哈希；(4) 加权轮询(加权轮转)。","Q2：场景：节点处理能力不同且需动态分配负载。区别：WLC 在 LC 基础上考虑节点处理能力权重，避免高性能空闲、低性能过载。","Q3： 有状态 (1)：(a) Identification(Session)、(d) OnlineEdit(编辑会话) 无状态 (2)：(b) ResPublish、(c) ResRetrieval Statistics 无状态原因：依赖历史数据，数据在外部存储，服务本身不保存状态，任一实例可处理请求，便于水平扩展与容错。"],"pitfall":["❌❌ Q1 (2) 填\"DNS 负载均衡\" —— DNS 是域名层面分发不是软件 LB。标准答案是 ","❌ Q3：身份认证服务是","❌ Statistics Bean 答\"只读\" 不够精准 —— 要点出\""],"template":"软件 LB 三件套：LVS(L4) + HAProxy(L4/L7) + Nginx(L7) 算法决策表： 诉求算法 会话粘性源地址哈希 性能差异加权轮询 / WLC 连接均衡最小连接数 简单均分轮询 有状态/无状态判定：\"服务端是否需保存会话/上下文\"。 高频记忆： 认证/购物车/在线编辑→有状态；查询/检索/发布/统计→无状态。"}],"kps":[{"id":"kp-ai-basic","title":"AI 基础：定义·分类·关键技术","category":"AI 与 LLM","tags":["AI","人工智能","关键技术","图灵测试"],"def":"利用计算机模拟、延伸、扩展人的智能，感知环境、获取知识并利用知识获得最佳结果的理论、方法、技术及应用系统。","core":"6 项关键技术典型应用 自然语言处理 NLP机器翻译、对话、情感分析 计算机视觉 CVOCR、图像分类、目标检测 知识图谱 KG关系推理、问答、推荐 人机交互 HCI语音助手、多模态 VR/AR沉浸式培训、远程协助 机器学习 ML预测/推荐/聚类","pitfall":"❌ 把 \"LLM / 语音识别 / 具身智能\" 填进关键技术 —— 不在教材 6 项。 ❌ 强 AI 是\"更大的 LLM\"—— 强 AI 强调\"真推理/思考/意识\"，当前均为弱 AI。","template":"关键技术 6 字口诀：自然 视觉 知图 交互 虚实 学习。"},{"id":"kp-ml-class","title":"机器学习分类：监督·无监督·半监督·强化","category":"AI 与 LLM","tags":["机器学习","监督学习","强化学习","深度学习"],"def":"机器学习按学习模式 4 大类：监督 / 无监督 / 半监督 / 强化。正交维度：传统 ML vs 深度学习。","core":"类别代表算法典型场景 监督SVM/决策树/神经网络图像分类/风控/预测 无监督K-means/PCA/Autoencoder用户分群/降维/异常 半监督Self-training/S3VM少量标签大量无标 强化Q-Learning/DQN/PPO游戏AI/机器人/调度","pitfall":"❌ 把\"少样本/零样本\"归为第 5 类 —— 它们是监督学习的变体，不是独立大类。 ❌ 深度学习 = 第 5 类 —— 深度学习是\"模型结构\"维度，与 4 分类正交。","template":"4 分类判别：看\"标签量\"——全=监督 / 部分=半监督 / 无=无监督；看\"反馈机制\"→强化学习。"},{"id":"kp-rag-vs-ft","title":"RAG vs 模型微调 (Fine-Tuning)","category":"AI 与 LLM","tags":["RAG","微调","LLM","向量检索","Embedding"],"def":"LLM 落地两大路径。RAG=检索增强生成，外挂知识库；微调=用领域数据再训练 LLM，能力内化。","core":"维度RAG微调 知识更新✔ 热更新(改文档即可)✘ 需重训 可追溯✔ 可引用原文✘ 黑盒 成本中(向量库+检索)高(GPU 训练) 风格/语气✘ 难控✔ 可内化 延迟高(检索+生成)低(直接推理) 离线✘ 依赖检索✔ 模型内化","pitfall":"❌ RAG 和微调\"二选一\" —— 实际经常混合(先微调稳定风格 + RAG 注入实时知识)。 ❌ RAG 一定更便宜 —— 如果检索链路复杂(多路召回+rerank)，成本反而高。","template":"决策四问：知识频更? → RAG；风格/格式要稳? → 微调；可追溯? → RAG；低延迟离线? → 微调。"},{"id":"kp-agent-mcp","title":"AI Agent + MCP 协议","category":"AI 与 LLM","tags":["AI Agent","MCP","Function Calling","Tool Use","Planning"],"def":"Agent=能自主规划、调用工具、保持记忆完成任务的 AI 程序。MCP(Model Context Protocol)=标准化工具接入协议，类似 AI 世界的 USB。","core":"Agent 三大能力：Planning(规划) / Tool Use(工具调用) / Memory(记忆)。 MCP 核心价值：① 标准化工具协议；② 工具可插拔(模型和工具解耦)；③ 降低开发复杂度；④ 便于安全/权限统一管控。 典型 Agent 架构：ReAct / Plan-and-Execute / Multi-Agent。","pitfall":"❌ Agent = ChatBot —— ChatBot 只聊天；Agent 可以自主调用工具、完成动作。 ❌ MCP = API —— MCP 是\"模型-工具\"间的标准协议，API 是通用概念。MCP 规范了工具发现/调用/上下文注入方式。","template":"Agent 答题 3 段式：① 定位痛点 → ② 动作链(规划/调用/反思) → ③ 价值(端到端自动化)。 MCP 一句话：\"USB-C for AI\"——统一工具插拔。"},{"id":"kp-service-registry","title":"服务注册与发现","category":"微服务","tags":["注册中心","服务发现","Nacos","Eureka","Consul"],"def":"微服务核心组件。服务启动时把 IP/端口/服务名 注册到注册中心；消费者通过注册中心查询可用实例，实现动态调用，无需硬编码服务地址。","core":"三大价值：① 动态扩缩容适配；② 服务解耦(消费者不写死地址)；③ 故障自动剔除。 主流实现对比： 产品一致性模型特点 EurekaAPNetflix系/简单可用 ConsulCP强一致/多数据中心 NacosAP/CP 可切阿里开源+配置中心一体 ZooKeeperCP经典/Dubbo 默认","pitfall":"❌ 定义漏\"注册中心\" / \"无需硬编码\" 关键词。 ❌ 价值只答\"解耦+高可用\" —— 标准 3 点还有\"扩缩容适配\"和\"故障剔除\"。","template":"注册发现口诀：\"注册中心 + 提供者 + 消费者 + 无需硬编码\"，价值 3 点\"扩缩容 / 解耦 / 剔除\"。"},{"id":"kp-micro-layer","title":"Web 微服务 5 层架构","category":"微服务","tags":["分层","网关","服务支撑","CDN"],"def":"典型政务/电商 Web 微服务分为 5 层：展示 → 网关&负载 → 业务微服务 → 服务支撑 → 持久。","core":"每一层的职责： 展示：多端适配 网关&负载：流量入口 + 路由 + 限流熔断 业务微服务：领域拆分，独立部署 服务支撑：注册发现、配置、审计、加密等横切能力 持久：DB、缓存、对象存储","pitfall":"❌ 把\"审计/加密\"放进\"业务层\" —— 它们属服务支撑层。❌ 忽略 CDN 在\"网关&负载\"层 —— 加速静态资源。","template":"5 层口诀：展示 → 网关&负载 → 业务 → 支撑 → 持久"},{"id":"kp-circuit-breaker","title":"熔断 / 降级 / 限流 三板斧","category":"微服务","tags":["熔断","降级","限流","Sentinel","Hystrix"],"def":"微服务高可用三板斧。熔断=下游故障时直接快速失败；降级=返回兜底结果；限流=保护系统不被流量冲垮。","core":"手段目标代表 熔断下游异常快速失败避免雪崩Hystrix/Sentinel/Resilience4j 降级返回默认值或低优先级结果兜底数据/读缓存/异步化 限流保护自身不被打垮令牌桶/漏桶/滑动窗口","pitfall":"❌ 熔断=限流 —— 熔断针对\"下游故障\"，限流针对\"上游洪峰\"。❌ 熔断后永久拒绝 —— 有 Half-Open 试探恢复机制。","template":"三板斧记忆：熔断\"断自己通向故障下游的路\"；降级\"让自己退而其次\"；限流\"挡一些进来的人\"。"},{"id":"kp-dengbao3","title":"等保三级安全四件套","category":"安全合规","tags":["等保","认证","RBAC","加密","审计"],"def":"等级保护三级要求系统具备：身份认证 / 权限管控 / 数据加密 / 操作审计 四大能力。","core":"四件套关键技术词： 能力关键词 认证多因子/统一认证/电子签章 权限RBAC+ABAC/三级权限 加密TLS1.3/国密 SM2/4/脱敏 审计日志不可篡改/追溯/告警","pitfall":"❌ 只写\"加密+认证\" —— 至少 3 项 + RBAC/ABAC 关键词。❌ 日志\"可查\"不等于\"不可篡改\" —— 需要 WORM/区块链/哈希链。","template":"四件套口诀：认证 / 权限 / 加密 / 审计，每项至少 1 个关键技术词。"},{"id":"kp-cache-aside","title":"Cache-Aside 模式（旁路缓存）","category":"缓存与性能","tags":["Cache-Aside","缓存","读写策略"],"def":"应用直接管理缓存：读=先查缓存未命中回源 DB+回写；写=更新 DB + 删除缓存(Invalidate)，不是双写。","core":"为什么\"更新 DB + 删缓存\"而不是\"更新 DB + 更新缓存\"？ 并发写时缓存可能回到旧值(A 写 DB=1 + 缓存=1 / B 写 DB=2 + 缓存=2 → 但线程交叉可能让缓存停在 1)。 删缓存懒加载，真正读时回写最新，避免无效写入。","pitfall":"❌❌ 写成\"双写 DB + Redis\" —— 会导致数据不一致，高频错。❌ 极端场景下\"更新 DB 成功/删缓存失败\" —— 引入\"延时双删\"或订阅 binlog 异步删。","template":"标答：读=查缓存→未命中→DB→回写；写=更 DB + 删缓存。"},{"id":"kp-cache-patterns","title":"三种缓存模式对比","category":"缓存与性能","tags":["Cache-Aside","Read-Through","Write-Through","Write-Behind"],"def":"三模式：Cache-Aside(应用管)、Read/Write-Through(缓存代管+同步 DB)、Write-Behind(缓存代管+异步刷 DB)。","core":"模式一致性场景 Cache-Aside⚠ 可能不一致通用读多写少 Read/Write-Through✔ 最好金融强一致 Write-Behind✘ 可能丢写密集(日志/点击流)","pitfall":"❌ 把\"Cache-Aside\"和\"Write-Through\"混 —— 前者应用自己操作 DB，后者缓存代管 DB。","template":"决策：读多写少 → Aside；强一致 → Through；写密集/可容忍丢 → Behind。"},{"id":"kp-redis-cluster","title":"Redis 三种集群架构：主从 / 哨兵 / Cluster","category":"缓存与性能","tags":["Redis","主从","哨兵","Cluster"],"def":"Redis 三种集群架构演进：读写分离(主从)→ 自动故障转移(哨兵) → 分片扩展(Cluster)。","core":"架构能力局限 主从读写分离/数据备份主宕不自动切 哨兵主从 + 自动故障转移不能水平扩容容量 Cluster分片(16384 槽)+ 扩展 + 高可用复杂/不支持多 key 跨槽事务","pitfall":"❌ 哨兵=分片 —— 哨兵只管高可用，不分片。❌ Cluster 需奇数节点 —— Cluster 本身可偶数，需\"多数派\"决定 failover，建议 3 主起。","template":"演化口诀：主从(读写分离)→ 哨兵(HA)→ Cluster(分片)。"},{"id":"kp-bloom","title":"缓存三大难题 & 布隆过滤器","category":"缓存与性能","tags":["缓存穿透","击穿","雪崩","布隆过滤器"],"def":"缓存三难：穿透(不存在 key 打穿)/击穿(热 key 过期)/雪崩(大量同时失效)；布隆=用多 Hash 映射到 bitmap 的空间高效\"是否存在\"判断器。","core":"问题成因解法 穿透查询不存在 key布隆过滤器 + 空值 TTL 击穿单个热 key 过期瞬间互斥锁 / 逻辑过期 / 永不过期 雪崩大量 key 同时过期或缓存宕TTL 加随机 + 多级缓存 + 集群 HA + 限流 布隆特点：空间 O(m)；查询 O(k)；有假阳性 / 无假阴性；不支持删除(Counting BF 可)。","pitfall":"❌ 布隆解\"击穿\" —— 错，布隆解穿透。❌ 布隆无误判 —— 有假阳性(可能误报存在)。","template":"三问口诀：① 不存在的 key? → 穿透(布隆)；② 热 key 刚过期? → 击穿(锁)；③ 一片同时挂? → 雪崩(随机+多级+HA)。"},{"id":"kp-quality-attrs","title":"软件六大质量属性 (开发期/运行期)","category":"架构评估与质量","tags":["质量属性","性能","可用性","安全性","可修改性"],"def":"质量属性=非功能需求的度量维度。运行期：性能/可用性/安全性/易用性；开发期：可修改性/可测试性/可重用性/可移植性。","core":"属性关注战术 性能响应时间/吞吐缓存/并发/异步 可用性故障时长冗余/故障转移/重试 安全性抵御攻击认证/授权/加密/审计 可修改性变更成本封装/分层/模块化 易用性用户操作效率一致UI/帮助/快捷键 可测试性暴露缺陷便利接口分离/可控输入/监控","pitfall":"❌ 可用性=可靠性 —— 可用性是\"占时比例\"，可靠性是\"MTBF 间隔\"。","template":"6 字口诀：\"性可易安改测\"。看到\"响应/TPS\"→性能；\"7x24\"→可用；\"越权/加密\"→安全；\"改造成本\"→可修改。"},{"id":"kp-utility-tree","title":"质量属性效用树","category":"架构评估与质量","tags":["效用树","场景","优先级"],"def":"效用树：根=效用(Utility) → 质量属性 → 属性子类 → 叶子=可度量场景 + ⟨重要度, 难度⟩。","core":"场景六要素：刺激源 / 刺激 / 环境 / 制品 / 响应 / 响应度量。 优先级：⟨重要度 H/M/L, 难度 H/M/L⟩，挑 HH / HM 场景重点评估。","pitfall":"❌ 只写\"系统要快\"—— 必须可度量(如 500 并发下 95% 请求 1s 内)。❌ 漏掉 ⟨重要度,难度⟩ 优先级标注。","template":"4 步：① 列属性 → ② 分子类 → ③ 写 2-4 条场景 → ④ 标 ⟨H/M/L⟩。"},{"id":"kp-arch-eval","title":"ATAM 评估 · 敏感 / 权衡 / 风险 / 非风险","category":"架构评估与质量","tags":["ATAM","敏感点","权衡点","风险点","非风险点"],"def":"ATAM 识别架构决策的 4 类关键点：敏感(单属性)/权衡(多属性)/风险(有隐患)/非风险(无负担)。","core":"类别例子 敏感点DB 连接池大小 → 性能 权衡点加密强度 → 安全↑ 性能↓ 风险点无灾备 → 可用性目标不达 非风险点已用成熟框架","pitfall":"❌ 把敏感点当风险点 —— 敏感=有影响；风险=可能出问题。❌ 权衡点只影响一个属性 —— 必须多属性冲突。","template":"3 问判别：影响几个属性? (1/多) → (敏感/权衡)；是否威胁目标? (是/否) → (风险/非风险)。"},{"id":"kp-perf-tactics","title":"性能战术三大分类","category":"架构评估与质量","tags":["性能战术","资源需求","资源管理","资源仲裁"],"def":"性能战术三类：资源需求(做少)/资源管理(给多)/资源仲裁(分好)。","core":"类别本质典型 资源需求做更少减计算/控采样/管事件率 资源管理给更多并发/副本/扩容 资源仲裁分更好FIFO/优先级/调度","pitfall":"❌ \"加缓存\"放资源仲裁 —— 应属资源管理。❌ \"限流\"=资源管理 —— 偏仲裁/需求。","template":"3 字口诀：\"做少 / 给多 / 分好\"。"},{"id":"kp-info-arch-models","title":"信息系统 4 种架构模型","category":"集成架构","tags":["单机","C/S","B/S","SOA","数据交换总线"],"def":"信息系统 4 种架构模型：单机 → C/S·B/S → SOA → 数据交换总线(数据中台/微服务)。","core":"模型特点适用 单机所有功能在 1 个程序工具软件 C/S · B/SC/S 胖客户端；B/S 浏览器+Web+DB局域网 / Internet SOA + ESB服务化+总线编排异构集成 数据交换总线数据打通+服务编排数据中台/大型组织","pitfall":"❌ 把\"分层架构\"当 4 种之一 —— 分层是\"设计风格\"，不是 4 模型。","template":"记忆：单机 → C/S · B/S → SOA · ESB → 数据交换总线"},{"id":"kp-esb-soa","title":"SOA + ESB 企业服务总线","category":"集成架构","tags":["SOA","ESB","路由","协议转换","编排"],"def":"SOA=面向服务架构；ESB=SOA 的基础设施，提供\"总线式\"服务间通信。","core":"ESB 五大能力：① 消息路由；② 协议转换(SOAP/REST/JMS/FTP)；③ 数据格式转换(XML↔JSON)；④ 服务编排(BPEL)；⑤ 监控治理。 SOA 原则：松耦合/可复用/标准契约/自治/无状态/可发现。","pitfall":"❌ ESB = MQ —— ESB 功能远超消息队列。❌ 微服务不需要总线 —— 用\"API 网关+轻量消息\"替代重量 ESB。","template":"ESB 5 作用：路由 / 协议转换 / 格式转换 / 流程编排 / 监控治理。"},{"id":"kp-microservice-compare","title":"微服务 vs SOA vs 单体","category":"集成架构","tags":["微服务","SOA","单体","对比"],"def":"三种架构对比：从粒度、耦合度、运维复杂度三方面。","core":"维度单体SOA微服务 粒度整包粗细 通信进程内ESB 集中轻量 API 去中心 数据单库共享/独立独立 部署整体部分独立独立 优点简单标准化集成独立/弹性/异构 挑战难扩展ESB 瓶颈分布式/运维复杂","pitfall":"❌ 微服务一定更好 —— 小团队/简单系统反增复杂度。❌ 微服务免费弹性 —— 需 K8s/注册中心/熔断/监控配套。","template":"选型：稳定+小团队 → 单体；异构多 → SOA；高频迭代+多团队 → 微服务。"},{"id":"kp-isa","title":"ISA 信息系统体系结构","category":"集成架构","tags":["ISA","战略系统","业务系统","应用系统","基础设施"],"def":"ISA 四层体系结构：战略 → 业务 → 应用 → 信息基础设施。从组织视角描述信息系统组成。","core":"方法论代表：Zachman / TOGAF / IAF。 4A 架构：Business / Data / Application / Technology。","pitfall":"❌ ISA = IT 架构 —— ISA 从业务能力出发，IT 架构只是\"应用+技术\"层。❌ 底层最先 —— ISA 是自上而下，战略在最顶。","template":"金字塔：战略 → 业务/应用 → 信息基础设施。"},{"id":"kp-redis-sharding","title":"Redis 分片：范围 / 哈希 / 一致性哈希","category":"缓存与性能","tags":["分片","一致性哈希","虚拟节点","CRC16","槽位"],"def":"Redis 分片 3 种方案：范围 / 哈希 / 一致性哈希。Redis Cluster 本质是\"CRC16 % 16384 槽位\"的哈希分片改良版。","core":"方案均衡扩展 范围不均差 哈希均差(全迁) 一致性哈希均(配虚拟节点)优(只迁邻近)","pitfall":"❌ 一致性哈希绝对均匀 —— 没虚拟节点严重倾斜。❌ 普通哈希扩容只迁少量 —— 几乎全迁。","template":"答题 3 句：\"一致性哈希+虚拟节点，扩容 N→N+1 只迁 1/(N+1)，配合 CRC16 槽位平滑再均衡\"。"},{"id":"kp-redis-datatypes","title":"Redis 5 种数据类型","category":"缓存与性能","tags":["String","Hash","List","Set","ZSet"],"def":"Redis 5 基本类型：String / Hash / List / Set / ZSet。另有 Bitmap / HyperLogLog / Geo / Stream 等扩展。","core":"类型命令场景 StringSET/GET/INCR计数/锁/验证码 HashHSET/HGET用户资料/商品详情 ListLPUSH/RPOP消息队列/时间线 SetSADD/SINTER标签/好友/去重 ZSetZADD/ZRANGEBYSCORE排行榜/延迟队列","pitfall":"❌ 用 String 存整对象再改单字段 —— 应用 Hash。❌ 用 List 做可靠队列 —— 无 ACK，建议 Stream/专业 MQ。","template":"3 问选型：字段级访问? → Hash；有序有权? → ZSet；需集合运算? → Set。"},{"id":"kp-redis-eviction","title":"Redis 过期与淘汰策略","category":"缓存与性能","tags":["LRU","LFU","maxmemory-policy","惰性","定期"],"def":"Redis 满时按 maxmemory-policy 淘汰。过期删除策略：惰性+定期。","core":"过期删除：① 惰性(访问时删)；② 定期(周期扫描)。两者配合。 8 种淘汰：noeviction / allkeys-{lru,lfu,random} / volatile-{lru,lfu,ttl,random}。 LRU vs LFU：LRU 看最近访问时间；LFU 看访问频率(带衰减)，热点突发更准。","pitfall":"❌ 过期一到立刻删 —— 依赖惰性+定期。❌ allkeys- 和 volatile- 混 —— volatile 只淘汰设 TTL 的 key。","template":"选策略：纯缓存 → allkeys-lru/lfu；持久+缓存混用 → volatile-*；绝不丢 → noeviction+告警。"},{"id":"kp-distributed-lock","title":"Redis 分布式锁 (SET NX EX + UUID + Lua)","category":"并发与分布式","tags":["分布式锁","SETNX","Redlock","Lua","WatchDog"],"def":"多进程互斥。Redis 实现关键：原子加锁+持有者校验+原子释放+过期兜底+看门狗续期。","core":"4 步标准： 加锁：SET key uuid NX EX 30 —— 原子：不存在才设 + 30s 过期。 value=UUID：防误删他人锁。 解锁：Lua 脚本 GET 校验 → DEL。 续期：WatchDog 看门狗每 N 秒续期，防业务超时。 Redlock：N(5) 节点多数派加锁(争议大，Redisson 单机+主从通常已够)。","pitfall":"❌ SETNX+EXPIRE 两条命令 —— 非原子，宕机死锁。❌ 解锁直接 DEL —— 可能删他人锁，必须 Lua 校验。❌ 固定 30s 过期 —— 业务长耗时需WatchDog续期。","template":"口诀：① SET NX EX；② value=UUID；③ Lua 校验 DEL；④ WatchDog 续期。"},{"id":"kp-load-balancer","title":"负载均衡 · LVS / HAProxy / Nginx + 算法","category":"高可用与负载","tags":["LVS","HAProxy","Nginx","轮询","加权","最小连接数","源地址哈希"],"def":"分发请求到多后端，提升吞吐与可用。按 OSI 层次：L4(LVS/HAProxy) vs L7(Nginx/HAProxy)。","core":"产品层特点 LVSL4 内核态百万并发，不解析 HTTP HAProxyL4/L7高性能+灵活配置 NginxL7 (也能 stream L4)HTTP 丰富+反向代理+静态 静态算法：轮询/加权轮询/源地址哈希。动态算法：最小连接数/加权最小连接/最快响应。","pitfall":"❌ 轮询能做会话保持 —— 需源 Hash/Cookie Hash/Session 共享。❌ LVS 做 URL 路由 —— L4 不懂 HTTP，URL 路由要 L7。","template":"三件套：LVS + HAProxy + Nginx。算法决策：粘性→源Hash；性能差→加权；均衡→最小连接。"},{"id":"kp-stateful-stateless","title":"有状态 vs 无状态服务","category":"高可用与负载","tags":["有状态","无状态","Session","弹性","会话保持"],"def":"无状态=每次请求独立不依赖本地状态；有状态=依赖本地会话/缓存/连接。","core":"维度无状态有状态 扩缩容任意水平数据迁移/重平衡 LB任意算法粘性或 Session 共享 故障切换简单主从/选主/恢复 无状态化改造：Session 外置(Redis)/文件外置(OSS)/配置中心化/幂等化/JWT 令牌。","pitfall":"❌ 任何服务都能无状态 —— 数据库本质有状态。❌ 粘滞 = Session 共享 —— 粘滞是权宜，节点下线会话丢。","template":"弹性口诀：\"把状态抽出去\"——Session 进 Redis / 文件进 OSS / 配置进配置中心。"}],"variants":[{"from":"AI 智能客服系统升级（环球E购）","type":"选择","q":"下列哪项不属于教材 AI 关键技术 6 项？","ans":"A","explain":"A. 大语言模型 LLM （不在 6 项内）｜B. 自然语言处理 ✓｜C. 知识图谱 ✓｜D. VR/AR ✓"},{"from":"AI 智能客服系统升级（环球E购）","type":"填空","q":"一个“看过 3 张猫图片就能识别新品种猫”的模型，属于 ML 哪种学习模式？","ans":"少样本学习（Few-shot Learning，属监督学习的变体）；若按教材四分类更贴近监督学习的小样本场景。","explain":""},{"from":"AI 智能客服系统升级（环球E购）","type":"简答","q":"电商客服面对“国家政策频繁调整”，应优先选 RAG 还是微调？说明 3 点原因。","ans":"选 RAG。① 政策变化频繁，RAG 热更新知识库、无需重训；② RAG 可追溯引用到具体条款、便于合规审计；③ RAG 成本低于再微调。","explain":""},{"from":"AI 智能客服系统升级（环球E购）","type":"简答","q":"在 Agent 调用外部工具时，为何 MCP 比“每个工具写一套 SDK”更优？","ans":"① 统一协议减少开发成本；② 模型能自动发现并选择工具（工具可插拔）；③ 工具提供方和模型解耦，版本升级不影响对方；④ 便于安全审计与权限控制。","explain":""},{"from":"AI 智能客服系统升级（环球E购）","type":"论文要点","q":"以 AI Agent 提升企业客户服务自动化为题写一篇。","ans":"要点：① 现状与痛点（规则引擎局限）；② 架构：LLM+RAG+Agent+MCP 分层；③ 核心技术：Planning、Tool Use、工具编排、Session 上下文；④ 价值：自动化率提升、合规可追溯、多语言；⑤ 风险：幻觉、权限、兜底人工。","explain":""},{"from":"一网通办 政务服务 Web 平台","type":"选择","q":"以下哪项不是服务注册与发现的核心职责？","ans":"C","explain":"A. 服务列表维护 ✓｜B. 健康检查 ✓｜C. 服务内部业务处理 ✗（业务由服务本身处理，不在注册中心）｜D. 故障实例剔除 ✓"},{"from":"一网通办 政务服务 Web 平台","type":"填空","q":"等保三级“安全审计”层面最关键的三个词：___、___、___。","ans":"日志不可篡改、全流程可追溯、异常告警。","explain":""},{"from":"一网通办 政务服务 Web 平台","type":"简答","q":"百万并发下为什么要把“服务网关”和“负载均衡”分层而不是合一？","ans":"① 网关偏 L7 业务路由+鉴权+限流；负载均衡偏 L4 流量均分；② 分层便于独立扩展(LVS 抗流量 + Nginx/网关做业务路由)；③ 失效隔离+更细粒度监控；④ 符合“关注点分离”。","explain":""},{"from":"一网通办 政务服务 Web 平台","type":"简答","q":"RBAC 与 ABAC 的主要区别？","ans":"RBAC 基于“角色-权限”；ABAC 基于“属性条件”(用户/资源/环境)。ABAC 更细粒度、适合数据级/字段级权限；RBAC 易管理，适合组织结构清晰的企业。常组合使用。","explain":""},{"from":"一网通办 政务服务 Web 平台","type":"论文要点","q":"谈谈面向大规模政务服务的微服务架构设计。","ans":"要点：① 5 层分层架构；② 服务注册发现+配置中心；③ 熔断/限流/降级三板斧；④ 等保三级安全；⑤ 异构数据中台对接；⑥ 监控链路追踪。","explain":""},{"from":"云购商城 缓存架构升级","type":"选择","q":"Cache-Aside 模式下，最推荐的写操作顺序是？","ans":"B","explain":"A. 先删缓存再更 DB（并发读可能把旧值重写入缓存）｜B. 先更 DB 再删缓存 ✓｜C. 同时并发更新 DB+缓存（可能不一致）｜D. 只更缓存、异步刷 DB（Write-Behind，非 Aside）"},{"from":"云购商城 缓存架构升级","type":"填空","q":"一个 key 本来就不存在，黑客大量请求该 key 造成 DB 被打穿——这叫 ___。解法是 ___。","ans":"缓存穿透；布隆过滤器 + 空值短 TTL 缓存。","explain":""},{"from":"云购商城 缓存架构升级","type":"简答","q":"为什么 Cache-Aside 写操作选择“删缓存”而不是“更缓存”？","ans":"① 并发写时两个写线程可能交叉导致缓存值错（A 先写 DB 值 A，B 后写 DB 值 B，然后 A 把旧值 A 写入缓存）；② 删缓存实现简单、代价低；③ 懒加载：真正被读时再回写最新值；④ 避免无意义写(写后很少被读)。","explain":""},{"from":"云购商城 缓存架构升级","type":"简答","q":"秒杀系统中，要防“缓存击穿”(热门商品 key 过期瞬间 10w QPS 打到 DB) 用什么方案？","ans":"① 互斥锁(Redis SETNX)只让一个线程回源、其他等待；② 逻辑过期(不真过期，后台线程刷新)；③ 永不过期+主动刷新；④ 本地缓存+Redis 二级。","explain":""},{"from":"云购商城 缓存架构升级","type":"论文要点","q":"谈谈高并发电商系统缓存架构设计。","ans":"要点：① Cache-Aside+三大难题应对；② Redis Cluster 分片；③ 多级缓存(本地+分布式)；④ 热点探测+动态扩容；⑤ 一致性(删缓存+binlog 订阅)；⑥ 布隆过滤+限流。","explain":""},{"from":"医院电子病历系统 · 质量属性 / 架构评估","type":"选择","q":"一个架构决策“使用加密算法 A 提升安全性，但因加密开销导致响应时间增加 30%”——这属于？","ans":"B","explain":"A. 敏感点 ｜ B. 权衡点 ✓（安全↑性能↓，同时影响多个属性）｜ C. 风险点 ｜ D. 非风险点"},{"from":"医院电子病历系统 · 质量属性 / 架构评估","type":"填空","q":"性能战术中，“增加 CPU 核数、扩容 Worker 节点”属于 ___ 类战术。","ans":"资源管理（提供更多资源）。","explain":""},{"from":"医院电子病历系统 · 质量属性 / 架构评估","type":"简答","q":"为什么效用树的叶子节点必须写“场景 + ⟨重要度, 难度⟩”，而不能只写目标？","ans":"① 场景可度量可测试(刺激源+环境+响应+响应度量)；② ⟨重要度, 难度⟩ 支持 ATAM 挑 HH/HM 场景集中精力评估；③ 仅写目标不可操作、无法支撑架构决策。","explain":""},{"from":"医院电子病历系统 · 质量属性 / 架构评估","type":"简答","q":"从 ATAM 视角，系统若只有敏感点而没有权衡点，意味着什么？","ans":"意味着各质量属性之间相互独立、没有冲突。实际项目极少见。通常加密/压缩/并发等决策会同时影响多属性，是权衡点的“温床”。无权衡点可能说明场景覆盖不全或架构过于粗糙。","explain":""},{"from":"医院电子病历系统 · 质量属性 / 架构评估","type":"论文要点","q":"谈谈基于 ATAM 的大型医疗系统架构评估。","ans":"要点：① 构建效用树(6 属性+场景+优先级)；② 分析架构决策 → 识别 4 类点；③ 针对 HH 场景做战术选择；④ 权衡点量化；⑤ 风险点出缓解方案；⑥ 迭代复审。","explain":""},{"from":"航空公司 Ramp Coordination · ESB / SOA 集成","type":"选择","q":"下列哪项不是信息系统 4 种架构模型？","ans":"C","explain":"A. 单机应用 ✓ ｜B. C/S · B/S ✓ ｜C. 分层服务架构 ✗（非 4 模型之一）｜D. SOA ✓"},{"from":"航空公司 Ramp Coordination · ESB / SOA 集成","type":"填空","q":"某银行通过 ESB 把核心账务(大型机)、信贷(Unix)、渠道(Web)统一接入——这解决了 ESB 的哪两个核心能力？","ans":"协议转换(不同平台通信协议)；数据格式转换(不同报文格式 XML/JSON/固定长度报文)。","explain":""},{"from":"航空公司 Ramp Coordination · ESB / SOA 集成","type":"简答","q":"微服务为什么需要“服务注册与发现”？","ans":"① 微服务实例动态增减(扩缩容/故障)，地址不固定；② 消费者不能硬编码 IP；③ 注册中心统一管理生命周期、健康检查；④ 支持多实例负载均衡；⑤ 异构环境下的治理统一出口。","explain":""},{"from":"航空公司 Ramp Coordination · ESB / SOA 集成","type":"简答","q":"ESB 和微服务网关的主要差异？","ans":"ESB 是“中心式总线+强编排”，面向异构协议整合；网关是“轻量路由+鉴权+限流”，面向对外统一入口。ESB 偏 SOA 时代、微服务网关偏云原生，后者更无状态、去中心、可弹性伸缩。","explain":""},{"from":"航空公司 Ramp Coordination · ESB / SOA 集成","type":"论文要点","q":"谈谈传统企业到微服务的演进路径。","ans":"要点：① 单体痛点诊断；② C/S→SOA+ESB 过渡(统一接口+协议转换)；③ 服务拆分策略(DDD/业务域)；④ 微服务基建(注册/配置/熔断/链路)；⑤ 数据治理/去中心；⑥ 渐进演进避免大爆炸。","explain":""},{"from":"电商 Redis 订单处理 · 分片 / 类型 / 淘汰 / 锁","type":"选择","q":"下面哪种 Redis 淘汰策略“在所有 key 中按访问频次淘汰”？","ans":"B","explain":"A. allkeys-lru (最近未用) ｜B. allkeys-lfu ✓｜C. volatile-lfu (仅带 TTL) ｜D. volatile-ttl (最近过期)"},{"from":"电商 Redis 订单处理 · 分片 / 类型 / 淘汰 / 锁","type":"填空","q":"N→N+1 节点扩容时，普通 mod 哈希分片需迁 ___ 数据；一致性哈希仅需迁 ___ 数据。","ans":"几乎全量；约 1/(N+1) 相邻段。","explain":""},{"from":"电商 Redis 订单处理 · 分片 / 类型 / 淘汰 / 锁","type":"简答","q":"为什么 Redis 分布式锁解锁用 Lua 脚本而不是“GET + 判断 + DEL”？","ans":"Lua 脚本在 Redis 中原子执行。若用“GET→判断→DEL”非原子：中间可能锁已过期被别人拿到，你仍 DEL 掉了别人的锁。Lua 能保证“校验 value 与 DEL”整体不可中断。","explain":""},{"from":"电商 Redis 订单处理 · 分片 / 类型 / 淘汰 / 锁","type":"简答","q":"用 ZSet 实现延迟队列的原理？","ans":"将任务 ID 加入 ZSet，score=预期执行时间戳。消费端用 ZRANGEBYSCORE 0 now LIMIT 0 N 拉取到期任务，然后 ZREM 移除 → HSET 标记处理中 → 执行业务。可借助 Lua 保证原子。","explain":""},{"from":"电商 Redis 订单处理 · 分片 / 类型 / 淘汰 / 锁","type":"论文要点","q":"谈谈电商高并发下 Redis 使用实践。","ans":"要点：① 分片(一致性哈希/Cluster)；② 数据类型选型；③ 淘汰+过期策略；④ 三大难题(穿透/击穿/雪崩)；⑤ 分布式锁(秒杀/扣库存)；⑥ 主从+哨兵高可用；⑦ 监控热 key+大 key。","explain":""},{"from":"在线协作平台 · 负载均衡 + 有状态/无状态","type":"选择","q":"以下场景应选哪种 LB 算法？“后端服务器配置不同（16C/8C 混部），希望按能力分配请求”","ans":"B","explain":"A. 轮询(忽略能力差异) ｜B. 加权轮询/加权最小连接数 ✓｜C. 源地址哈希(会话粘性)｜D. 最快响应(动态但不按能力)"},{"from":"在线协作平台 · 负载均衡 + 有状态/无状态","type":"填空","q":"把 Session 从应用本地迁到 Redis 集中存储——这是“有状态→ ___”的改造。","ans":"无状态化（Session 外置）。","explain":""},{"from":"在线协作平台 · 负载均衡 + 有状态/无状态","type":"简答","q":"为什么 Sticky Session(粘滞会话) 不能替代 Session 共享？","ans":"① 粘滞依赖负载均衡器把相同用户打到同一台后端；② 一旦该后端下线/重启，会话丢失；③ 扩容/缩容时会打破粘滞；④ 不支持跨数据中心；⑤ Session 共享(Redis/数据库)才是真正弹性方案。","explain":""},{"from":"在线协作平台 · 负载均衡 + 有状态/无状态","type":"简答","q":"LVS、HAProxy、Nginx 三者怎么组合最优？","ans":"典型组合：“LVS 做 L4 入口抗流量 + HAProxy/Nginx 做 L7 业务路由”。LVS 工作在内核态，吞吐上百万 QPS；L7 负责 HTTP 路由、反向代理、会话保持、静态资源。","explain":""},{"from":"在线协作平台 · 负载均衡 + 有状态/无状态","type":"论文要点","q":"谈谈大型 Web 应用的负载均衡架构。","ans":"要点：① DNS 轮询 + L4(LVS) + L7(Nginx/HAProxy) 分层；② 静态 vs 动态算法选择；③ 会话保持方案；④ 健康检查+自动剔除；⑤ 限流/熔断配合；⑥ 有状态服务无状态化改造。","explain":""}],"top20":[{"from":"AI 基础：定义·分类·关键技术","cat":"AI 与 LLM","year":"2026上","type":"案例","hot":"本题综合","heat":95,"ref":"kp-ai-basic"},{"from":"RAG vs 模型微调 (Fine-Tuning)","cat":"AI 与 LLM","year":"2026上","type":"案例","hot":"本题 4 空选择","heat":95,"ref":"kp-rag-vs-ft"},{"from":"AI Agent + MCP 协议","cat":"AI 与 LLM","year":"2026上","type":"案例","hot":"本题 MCP + Agent","heat":95,"ref":"kp-agent-mcp"},{"from":"服务注册与发现","cat":"微服务","year":"2026上","type":"案例","hot":"本题 300 字题","heat":95,"ref":"kp-service-registry"},{"from":"Web 微服务 5 层架构","cat":"微服务","year":"2026上","type":"案例","hot":"本题 13 空","heat":95,"ref":"kp-micro-layer"},{"from":"Cache-Aside 模式（旁路缓存）","cat":"缓存与性能","year":"2026上","type":"案例","hot":"本题 Q1","heat":95,"ref":"kp-cache-aside"},{"from":"软件六大质量属性 (开发期/运行期)","cat":"架构评估与质量","year":"2026上","type":"案例","hot":"本题 Q1","heat":95,"ref":"kp-quality-attrs"},{"from":"质量属性效用树","cat":"架构评估与质量","year":"2026上","type":"案例","hot":"本题 Q1","heat":95,"ref":"kp-utility-tree"},{"from":"ATAM 评估 · 敏感 / 权衡 / 风险 / 非风险","cat":"架构评估与质量","year":"2022上","type":"案例","hot":"ATAM 4 点辨析","heat":95,"ref":"kp-arch-eval"},{"from":"ATAM 评估 · 敏感 / 权衡 / 风险 / 非风险","cat":"架构评估与质量","year":"2026上","type":"案例","hot":"本题 Q2","heat":95,"ref":"kp-arch-eval"},{"from":"性能战术三大分类","cat":"架构评估与质量","year":"2026上","type":"案例","hot":"本题 Q3","heat":95,"ref":"kp-perf-tactics"},{"from":"信息系统 4 种架构模型","cat":"集成架构","year":"2026上","type":"案例","hot":"本题 Q1","heat":95,"ref":"kp-info-arch-models"},{"from":"SOA + ESB 企业服务总线","cat":"集成架构","year":"2026上","type":"案例","hot":"本题 Q2","heat":95,"ref":"kp-esb-soa"},{"from":"Redis 分片：范围 / 哈希 / 一致性哈希","cat":"缓存与性能","year":"2026上","type":"案例","hot":"本题 Q1","heat":95,"ref":"kp-redis-sharding"},{"from":"有状态 vs 无状态服务","cat":"高可用与负载","year":"2026上","type":"案例","hot":"本题 Q3","heat":95,"ref":"kp-stateful-stateless"},{"from":"AI 智能客服系统升级（环球E购）","cat":"AI / LLM / RAG / Agent / MCP","year":"2026上","type":"案例","hot":"MCP + Agent + RAG 综合（本题）","heat":95,"ref":"case-2026h1-2-1"},{"from":"一网通办 政务服务 Web 平台","cat":"微服务 / 服务注册发现 / 分层 / 等保三级","year":"2026上","type":"案例","hot":"本题：注册发现+分层+等保综合","heat":95,"ref":"case-2026h1-2-2"},{"from":"云购商城 缓存架构升级","cat":"Redis / Cache-Aside / 缓存三大问题 / 布隆过滤","year":"2026上","type":"案例","hot":"本题：Cache-Aside+集群+布隆","heat":95,"ref":"case-2026h1-2-3"},{"from":"医院电子病历系统 · 质量属性 / 架构评估","cat":"质量属性 / 效用树 / ATAM 四点 / 性能战术","year":"2022上","type":"案例","hot":"ATAM 四点辨析","heat":95,"ref":"case-2026h1-1-1"},{"from":"医院电子病历系统 · 质量属性 / 架构评估","cat":"质量属性 / 效用树 / ATAM 四点 / 性能战术","year":"2026上","type":"案例","hot":"本题综合评估","heat":95,"ref":"case-2026h1-1-1"}]}</script>
+<script>
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const track = document.getElementById('track');
+const idxEl = document.getElementById('idx');
+const progEl = document.getElementById('progbar');
+const hintL = document.querySelector('.hint.l');
+const hintR = document.querySelector('.hint.r');
+let TAB = 'case';
+let I = 0;
+const STATE = {};  // per-tab current index
+
+function esc(s){ return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+/* ----- 渲染各 tab ----- */
+function renderCase(c){
+  const questions = (c.questions||[]).map(q=>`<div class="qitem"><b>Q${esc(q.no)}</b>${esc(q.text)}<span class="s">[${esc(q.score)}]</span></div>`).join('');
+  const refs = (c.refPoints||[]).map(p=>`<li>${esc(p)}</li>`).join('');
+  const pits = (c.pitfall||[]).map(p=>`<li>${esc(p)}</li>`).join('');
+  const tags = (c.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+  return `<div class="card"><div class="card-inner">
+    <div class="small">${esc(c.exam||'')}</div>
+    <h2>${esc(c.title)}</h2>
+    <div class="sub">${esc(c.score||'')} · ${esc(c.theme||'')}</div>
+    <div class="tags"><span class="tag theme">🎯${esc(c.theme||'')}</span>${tags}</div>
+    <div class="block">
+      <h4>📝 背景速览</h4>
+      <div class="gist">${esc(c.gist||'')}</div>
+    </div>
+    <div class="block q">
+      <h4>❓ 题目</h4>
+      ${questions||'<div class="small">—</div>'}
+    </div>
+    ${refs?`<div class="block ref"><h4>✅ 参考要点</h4><ol>${refs}</ol></div>`:''}
+    ${pits?`<div class="block pit"><h4>⚠️ 踩坑</h4><ul>${pits}</ul></div>`:''}
+    ${c.template?`<div class="block tpl"><h4>🎓 口诀/模板</h4><p>${esc(c.template)}</p></div>`:''}
+  </div></div>`;
+}
+
+function renderKp(k){
+  const tags = (k.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+  return `<div class="card"><div class="card-inner">
+    <div class="small">📚 ${esc(k.category||'')}</div>
+    <h2>${esc(k.title)}</h2>
+    <div class="tags">${tags}</div>
+    <div class="block"><h4>📖 定义</h4><p>${esc(k.def||'')}</p></div>
+    ${k.core?`<div class="block ref"><h4>🔑 核心要点</h4><p>${esc(k.core)}</p></div>`:''}
+    ${k.pitfall?`<div class="block pit"><h4>⚠️ 易错</h4><p>${esc(k.pitfall)}</p></div>`:''}
+    ${k.template?`<div class="block tpl"><h4>🎓 记忆口诀</h4><p>${esc(k.template)}</p></div>`:''}
+  </div></div>`;
+}
+
+function renderVar(v,i){
+  const tcls = 'type-'+v.type;
+  return `<div class="card"><div class="card-inner flip" data-i="${i}">
+    <div class="small">#${i+1} · 来自：${esc(v.from)}</div>
+    <div class="face">
+      <span class="type ${tcls}">${esc(v.type)}</span>
+      <div class="q">${esc(v.q)}</div>
+      <button class="reveal" onclick="revealAns(${i})">💡 显示参考答案</button>
+      <div class="ans-wrap">
+        <div class="ans">${esc(v.ans)}</div>
+        ${v.explain?`<div class="explain">解析：${esc(v.explain)}</div>`:''}
+      </div>
+    </div>
+    <div class="small" style="text-align:center;opacity:.6">← 左右滑切换下一题</div>
+  </div></div>`;
+}
+
+function renderHot(h,i){
+  return `<div class="card"><div class="card-inner">
+    <div class="small">Top ${i+1} · 历年高频考点</div>
+    <h2 style="font-size:17px;margin-top:8px;">${esc(h.from)}</h2>
+    <div class="sub">${esc(h.cat||'')}</div>
+    <div class="block">
+      <h4>🔥 命题方向</h4>
+      <p><b>${esc(h.year)}</b> · ${esc(h.type)}</p>
+      <p>${esc(h.hot||'')}</p>
+      <div>
+        <span class="heat" style="display:inline-block;width:120px;height:8px;background:var(--border);border-radius:4px;overflow:hidden;vertical-align:middle;">
+          <span style="display:block;height:100%;width:${h.heat||0}%;background:linear-gradient(90deg,#fbbf24,#ef4444);"></span>
+        </span>
+        <span class="hx">热度 ${h.heat||0}</span>
+      </div>
+    </div>
+    <div class="small">ℹ️ 记不住的话，回到电脑端 v2 页面查这一条对应的案例/知识点做延伸。</div>
+  </div></div>`;
+}
+
+function revealAns(i){
+  const el = track.querySelector('.flip[data-i="'+i+'"]');
+  if(el) el.classList.add('revealed');
+}
+
+/* ----- 切 Tab ----- */
+function buildCards(){
+  let html = '';
+  if(TAB==='case') html = DATA.cases.map(renderCase).join('');
+  else if(TAB==='kp') html = DATA.kps.map(renderKp).join('');
+  else if(TAB==='var') html = DATA.variants.map(renderVar).join('');
+  else if(TAB==='hot') html = DATA.top20.map(renderHot).join('');
+  track.innerHTML = html;
+  I = STATE[TAB] || 0;
+  applyI();
+}
+function countOf(t){
+  return t==='case'?DATA.cases.length : t==='kp'?DATA.kps.length : t==='var'?DATA.variants.length : DATA.top20.length;
+}
+function updateTabBadges(){
+  document.getElementById('c-case').textContent = DATA.cases.length;
+  document.getElementById('c-kp').textContent = DATA.kps.length;
+  document.getElementById('c-var').textContent = DATA.variants.length;
+  document.getElementById('c-hot').textContent = DATA.top20.length;
+}
+
+function setTab(t){
+  TAB = t;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===t));
+  buildCards();
+  // 隐藏滑动提示（只第一次提示）
+  if(hintL) hintL.style.display='none';
+  if(hintR) hintR.style.display='none';
+}
+
+/* ----- 翻页 ----- */
+function applyI(){
+  const n = countOf(TAB);
+  if(I < 0) I = 0;
+  if(I >= n) I = n-1;
+  STATE[TAB] = I;
+  track.style.transform = 'translateX(-'+(I*100)+'%)';
+  idxEl.textContent = (I+1) + '/' + n;
+  progEl.style.width = (n?((I+1)/n*100):0) + '%';
+  document.getElementById('prev').disabled = I<=0;
+  document.getElementById('next').disabled = I>=n-1;
+}
+function go(delta){
+  I += delta;
+  applyI();
+}
+
+/* ----- 触摸滑动 ----- */
+let startX=0, startY=0, dx=0, dy=0, dragging=false, axis=null;
+const deck = document.getElementById('deck');
+deck.addEventListener('touchstart', e => {
+  if(e.touches.length!==1) return;
+  startX = e.touches[0].clientX;
+  startY = e.touches[0].clientY;
+  dx = 0; dy = 0; axis = null;
+  dragging = true;
+  track.style.transition = 'none';
+}, {passive:true});
+deck.addEventListener('touchmove', e => {
+  if(!dragging) return;
+  dx = e.touches[0].clientX - startX;
+  dy = e.touches[0].clientY - startY;
+  if(!axis){
+    if(Math.abs(dx) > 10 || Math.abs(dy) > 10){
+      axis = (Math.abs(dx) > Math.abs(dy)) ? 'x' : 'y';
+    }
+  }
+  if(axis === 'x'){
+    e.preventDefault && e.cancelable && e.preventDefault();
+    const w = deck.clientWidth;
+    track.style.transform = 'translateX(calc('+(-I*100)+'% + '+dx+'px))';
+  }
+}, {passive:false});
+deck.addEventListener('touchend', () => {
+  if(!dragging) return;
+  dragging = false;
+  track.style.transition = '';
+  if(axis === 'x'){
+    const w = deck.clientWidth;
+    if(Math.abs(dx) > w*0.18){
+      go(dx<0 ? 1 : -1);
+    } else {
+      applyI();
+    }
+  }
+});
+
+/* ----- 按钮/键盘 ----- */
+document.getElementById('prev').addEventListener('click', ()=>go(-1));
+document.getElementById('next').addEventListener('click', ()=>go(1));
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowLeft') go(-1);
+  else if(e.key==='ArrowRight') go(1);
+});
+
+/* ----- tab 点击 ----- */
+document.getElementById('tabs').addEventListener('click', e=>{
+  const t = e.target.closest('.tab');
+  if(t) setTab(t.dataset.tab);
+});
+
+updateTabBadges();
+setTab('case');
+</script>
+</body>
+</html>
