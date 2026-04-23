@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>软考系统架构师 - 案例2：Redis缓存与分布式锁</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background-color: #faf8f3; line-height: 1.7; color: #333; }
+        .nav-bar { position: sticky; top: 0; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 100; }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; height: 60px; }
+        .nav-logo { display: flex; align-items: center; padding: 0 20px; font-size: 18px; font-weight: bold; color: #c62828; min-width: 200px; border-right: 1px solid #eee; }
+        .nav-links { display: flex; flex: 1; list-style: none; }
+        .nav-links li { display: flex; align-items: center; flex: 1; border-right: 1px solid #eee; cursor: pointer; transition: all 0.3s ease; }
+        .nav-links li:last-child { border-right: none; }
+        .nav-links li a { flex: 1; display: flex; align-items: center; justify-content: center; text-decoration: none; color: #666; font-size: 14px; }
+        .nav-links li.active a { color: #c62828; font-weight: bold; }
+        .nav-links li:hover { background-color: #f5f5f5; }
+        .hero { background: linear-gradient(135deg, #8b0000 0%, #c62828 60%, #d84343 100%); color: white; padding: 60px 20px; text-align: center; }
+        .hero-content { max-width: 1200px; margin: 0 auto; }
+        .hero h1 { font-size: 42px; margin-bottom: 15px; font-weight: bold; }
+        .hero p { font-size: 18px; opacity: 0.95; margin-bottom: 10px; }
+        .hero-subtitle { font-size: 16px; opacity: 0.85; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .section-title { font-size: 28px; color: #c62828; margin: 50px 0 30px; padding-bottom: 15px; border-bottom: 3px solid #e8734a; font-weight: bold; }
+        .case-box { background: linear-gradient(135deg, #fff8e1 0%, #ffe0b2 100%); border-left: 6px solid #e8734a; border-radius: 8px; padding: 25px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .case-box h3 { color: #bf360c; font-size: 20px; margin-bottom: 15px; }
+        .case-box p { font-size: 15px; line-height: 1.8; color: #333; margin-bottom: 10px; }
+        .case-box .case-score { display: inline-block; padding: 4px 12px; background: #4caf50; color: white; border-radius: 15px; font-size: 13px; font-weight: bold; margin-left: 10px; }
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; margin-bottom: 40px; }
+        .card { background: white; border-radius: 8px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s ease; border-left: 4px solid #c62828; }
+        .card:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.12); transform: translateY(-5px); }
+        .card-title { font-size: 20px; font-weight: bold; color: #c62828; margin-bottom: 15px; }
+        .card-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+        .badge-super { background-color: #ffcdd2; color: #b71c1c; }
+        .badge-high { background-color: #ffebee; color: #c62828; }
+        .badge-medium { background-color: #fff3e0; color: #e65100; }
+        .badge-low { background-color: #f1f8e9; color: #558b2f; }
+        .card-content { font-size: 15px; line-height: 1.8; color: #555; }
+        .card-content ul, .card-content ol { margin: 15px 0 15px 25px; }
+        .card-content li { margin-bottom: 12px; }
+        .highlight { background-color: #fef3cd; padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+        .code-snippet { background: #263238; color: #aed581; padding: 12px; border-radius: 5px; font-family: "Courier New", monospace; font-size: 13px; margin: 10px 0; overflow-x: auto; }
+        .comparison-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 40px; }
+        .comparison-table th { background-color: #c62828; color: white; padding: 15px; text-align: left; font-weight: bold; }
+        .comparison-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .comparison-table tbody tr:hover { background-color: #faf8f3; }
+        .comparison-table tbody tr:nth-child(even) { background-color: #fafbfc; }
+        .scoring-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 8px; overflow: hidden; }
+        .scoring-table th { background-color: #2e7d32; color: white; padding: 15px; }
+        .scoring-table td { padding: 12px 15px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .scoring-table .right { color: #2e7d32; font-weight: bold; }
+        .scoring-table .wrong { color: #c62828; text-decoration: line-through; }
+        .memory-tricks { background: white; border-radius: 8px; padding: 30px; margin-bottom: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #e8734a; }
+        .memory-item { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .memory-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .memory-label { font-weight: bold; color: #c62828; font-size: 16px; margin-bottom: 8px; }
+        .memory-text { font-size: 15px; color: #e8734a; padding: 10px 15px; background-color: #fff5f0; border-radius: 5px; }
+        .questions-container { background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .question { margin-bottom: 30px; padding-bottom: 30px; border-bottom: 1px solid #eee; }
+        .question:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .question-number { font-weight: bold; color: #c62828; font-size: 16px; margin-bottom: 8px; }
+        .options { margin-left: 20px; }
+        .option { display: flex; margin-bottom: 8px; cursor: pointer; padding: 8px; border-radius: 5px; transition: all 0.2s ease; }
+        .option:hover { background-color: #f5f5f5; }
+        .option-letter { min-width: 30px; font-weight: bold; color: #c62828; }
+        .option-text { flex: 1; color: #555; }
+        .answer-button { display: inline-block; margin-top: 10px; padding: 8px 16px; background-color: #c62828; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .answer-button:hover { background-color: #8b0000; }
+        .answer-reveal { margin-top: 15px; padding: 12px; background-color: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 5px; display: none; }
+        .answer-reveal.show { display: block; }
+        .answer-reveal-title { font-weight: bold; color: #2e7d32; margin-bottom: 5px; }
+        .answer-reveal-text { color: #555; font-size: 14px; line-height: 1.6; }
+        .test-section { margin-top: 50px; }
+        .test-controls { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .btn-primary { background-color: #c62828; color: white; }
+        .btn-primary:hover { background-color: #8b0000; }
+        .btn-success { background-color: #4caf50; color: white; }
+        .btn-success:hover { background-color: #388e3c; }
+        .btn-danger { background-color: #f44336; color: white; }
+        .btn-danger:hover { background-color: #da190b; }
+        .test-result { margin-top: 30px; padding: 20px; background-color: #f5f5f5; border-radius: 8px; display: none; }
+        .test-result.show { display: block; }
+        .result-score { font-size: 28px; font-weight: bold; color: #c62828; margin-bottom: 15px; }
+        .result-details { font-size: 14px; color: #666; line-height: 1.8; }
+        .footer { text-align: center; padding: 30px 20px; color: #999; font-size: 14px; border-top: 1px solid #eee; margin-top: 50px; }
+        @media (max-width: 768px) {
+            .nav-container { flex-direction: column; height: auto; }
+            .nav-links { flex-direction: column; }
+            .nav-links li { border-right: none; border-bottom: 1px solid #eee; }
+            .cards-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 28px; }
+            .section-title { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-container">
+            <div class="nav-logo">软考系统架构师</div>
+            <ul class="nav-links">
+                <li class="active"><a href="#section-case">案例回顾</a></li>
+                <li><a href="#section-lectures">考点精讲</a></li>
+                <li><a href="#section-scoring">标准答题词</a></li>
+                <li><a href="#section-memory">记忆口诀</a></li>
+                <li><a href="#section-tests">测试题</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="hero">
+        <div class="hero-content">
+            <h1>案例2：Redis 缓存与分布式锁</h1>
+            <p>Redis Cache &amp; Distributed Lock</p>
+            <p class="hero-subtitle">攻克：数据结构场景 · LRU局部性 · 布隆过滤器 · 互斥性与AP模型</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 案例回顾 -->
+        <h2 class="section-title" id="section-case">案例原题回顾</h2>
+        <div class="case-box">
+            <h3>📋 案例背景：某电商系统使用 Redis 做缓存层和分布式锁<span class="case-score">2026-04-20 得分：19/25</span></h3>
+            <p><strong>问题 1（6 分）</strong>：Redis 集群数据分片，填空 4 处（a-d）涉及哈希、数据分布均匀性的概念；并说明采用哪种分片方案可使扩展节点时数据迁移最少（2 分）。</p>
+            <p><strong>问题 2（3 分）</strong>：3 种典型业务场景对应的 Redis 数据结构选择：(1) 网站用户画像标签；(2) 分布式锁；(3) 销售周排行榜。</p>
+            <p><strong>问题 3（3 分）</strong>：Redis 的 LRU 淘汰策略考点——填空 3 处，分别涉及 LRU 的算法基础、核心思想及淘汰对象。</p>
+            <p><strong>问题 4（5 分）</strong>：布隆过滤器解决什么问题？列举至少 2 个缺点。</p>
+            <p><strong>问题 5（8 分）</strong>：Redis 分布式锁关键特性填空，以及 8 道判断题（一致性、SETNX、锁的正确性等）。</p>
+            <p style="margin-top: 15px; padding: 10px; background: #fff; border-radius: 5px;"><strong>失分主因</strong>：① 用户画像标签写成 Hash（应为 Set）；② LRU 的算法核心思想未答"局部性原理"；③ 布隆过滤器缺点只答了一点；④ Redis 锁关键特性写"一致性"（应为"互斥性"）。</p>
+        </div>
+
+        <!-- 考点精讲 -->
+        <h2 class="section-title" id="section-lectures">考点精讲</h2>
+        <div class="cards-grid">
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">Redis 5 大数据结构与场景</div>
+                <div class="card-content">
+                    <ul>
+                        <li><strong>String（字符串）</strong>：简单 KV、计数器、<span class="highlight">分布式锁</span>（SET NX）</li>
+                        <li><strong>Hash（哈希表）</strong>：存储对象属性（如用户信息 name/age/addr）</li>
+                        <li><strong>List（列表）</strong>：消息队列、最新消息 N 条</li>
+                        <li><strong>Set（集合）</strong>：<span class="highlight">用户标签/画像</span>、去重、交并差集运算（分群）</li>
+                        <li><strong>ZSet（有序集合）</strong>：<span class="highlight">排行榜</span>、带分数的排序</li>
+                    </ul>
+                    <p style="margin-top: 15px; color: #c62828; font-size: 14px;"><strong>⚠️ 踩雷：</strong>用户标签场景别写 Hash！Hash 是"对象属性"不是"集合"，没有去重和集合运算语义。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">用户画像为什么用 Set（不是 Hash）</div>
+                <div class="card-content">
+                    <p><strong>画像标签场景的 3 个核心需求：</strong></p>
+                    <ol>
+                        <li><strong>天然去重</strong>：同一标签不会被重复添加</li>
+                        <li><strong>快速判存在</strong>：SISMEMBER 时间复杂度 O(1)</li>
+                        <li><strong>集合运算分群</strong>：SINTER/SUNION/SDIFF 做"北京 AND 学生"</li>
+                    </ol>
+                    <p style="margin-top: 15px;"><strong>Hash 不适合的原因：</strong></p>
+                    <ul>
+                        <li>没有天然去重</li>
+                        <li>不支持集合运算（交并差）</li>
+                        <li>语义不匹配（Hash 是"对象属性"）</li>
+                    </ul>
+                    <p style="margin-top: 15px; color: #2e7d32; font-size: 14px;"><strong>✅ 扩展：</strong>如果标签带权重（喜欢度 0-100），用 ZSet；纯标签用 Set。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">LRU：核心是"局部性原理"</div>
+                <div class="card-content">
+                    <p><strong>LRU = Least Recently Used（最近最少使用）</strong></p>
+                    <p style="margin-top: 12px;"><strong>考点三连问（案例填空）：</strong></p>
+                    <ul>
+                        <li>算法基础是什么？→ <strong>局部性原理</strong>（最近访问过的数据未来更可能再访问）</li>
+                        <li>淘汰哪些数据？→ <strong>最近未（最少）被使用的数据</strong></li>
+                        <li>对哪些 key 生效？→ 取决于策略（volatile-lru 只淘汰带过期时间的，allkeys-lru 淘汰所有）</li>
+                    </ul>
+                    <p style="margin-top: 15px; color: #c62828; font-size: 14px;"><strong>⚠️ 踩雷：</strong>填空问"算法思想"时，答"LRU"本身是错的——要答"局部性原理"！</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-high">🔴 高频</div>
+                <div class="card-title">Redis 8 种内存淘汰策略</div>
+                <div class="card-content">
+                    <p><strong>按范围 × 策略分为 4×2 = 8 种：</strong></p>
+                    <ul>
+                        <li><strong>noeviction</strong>：不淘汰，写入返回错误（默认）</li>
+                        <li><strong>volatile-lru / allkeys-lru</strong>：按 LRU 淘汰</li>
+                        <li><strong>volatile-lfu / allkeys-lfu</strong>：按 LFU（最不常用）淘汰</li>
+                        <li><strong>volatile-random / allkeys-random</strong>：随机淘汰</li>
+                        <li><strong>volatile-ttl</strong>：淘汰即将过期的 key</li>
+                    </ul>
+                    <p style="margin-top: 12px;"><strong>volatile-* vs allkeys-*：</strong></p>
+                    <p>前者只淘汰<strong>带过期时间</strong>的 key；后者淘汰<strong>所有 key</strong>（纯缓存首选 allkeys-lru/lfu）。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">布隆过滤器（防缓存穿透）</div>
+                <div class="card-content">
+                    <p><strong>解决的问题：缓存穿透</strong>（大量不存在的请求直接打到 DB）</p>
+                    <p style="margin-top: 12px;"><strong>原理：</strong>多个哈希函数 + bit 数组，快速判断"一定不存在"或"可能存在"。</p>
+                    <p style="margin-top: 12px;"><strong>3 大缺点（案例至少答 2 点！）：</strong></p>
+                    <ol>
+                        <li><strong>存在误判率（假阳性）</strong>——可能把不存在的误判为存在</li>
+                        <li><strong>不支持删除元素</strong>——bit 位无法回退</li>
+                        <li><strong>只能判断有无，不能存储实际数据</strong></li>
+                    </ol>
+                    <p style="margin-top: 15px; color: #c62828; font-size: 14px;"><strong>⚠️ 踩雷：</strong>只答"只能判断有无"会被扣分！必须覆盖"误判率"和"无法删除"。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">缓存三大问题（穿透/击穿/雪崩）</div>
+                <div class="card-content">
+                    <table style="width:100%; font-size:14px;">
+                        <tr style="background:#fff3e0;"><th>问题</th><th>定义</th><th>解决方案</th></tr>
+                        <tr><td><strong>穿透</strong></td><td>查不存在的 key</td><td>布隆过滤器 / 缓存空值</td></tr>
+                        <tr><td><strong>击穿</strong></td><td>热点 key 过期瞬间被大量请求</td><td>互斥锁 / 永不过期</td></tr>
+                        <tr><td><strong>雪崩</strong></td><td>大量 key 同时过期</td><td>过期时间加随机 / 多级缓存</td></tr>
+                    </table>
+                    <p style="margin-top: 12px; color: #c62828; font-size: 14px;"><strong>⚠️ 易混：</strong>穿透=不存在的 key；击穿=单点热 key；雪崩=大面积同时过期。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">Redis 分布式锁核心要点</div>
+                <div class="card-content">
+                    <p><strong>锁的 4 大特性：</strong></p>
+                    <ul>
+                        <li><strong>互斥性</strong>（同一时刻只有一个客户端持锁）⭐</li>
+                        <li><strong>防死锁</strong>（设置过期时间）</li>
+                        <li><strong>可重入性</strong>（同一客户端可重复获取）</li>
+                        <li><strong>解锁安全性</strong>（只有持锁者能释放）</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>核心原子操作：</strong></p>
+                    <div class="code-snippet">SET key value NX PX 30000</div>
+                    <p style="font-size:14px;">NX = 不存在才设置；PX = 过期时间毫秒。一条命令原子完成"加锁 + 过期"。</p>
+                    <p style="margin-top: 12px; color: #c62828; font-size: 14px;"><strong>⚠️ 踩雷：</strong>锁的关键特性是"互斥性"，不是"一致性"！</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-high">🔴 高频</div>
+                <div class="card-title">Redis 锁为什么不是强一致（AP 模型）</div>
+                <div class="card-content">
+                    <p><strong>三大非强一致原因：</strong></p>
+                    <ol>
+                        <li><strong>主从同步延迟</strong>：主节点加锁后，key 未同步到从节点就宕机 → 新主节点无锁 → 双客户端持锁</li>
+                        <li><strong>Redis 是 AP 模型</strong>（最终一致），不像 ZK/etcd 是 CP 模型</li>
+                        <li><strong>时钟漂移</strong>：服务器/客户端时钟不同步导致过期判定不一致</li>
+                    </ol>
+                    <p style="margin-top: 15px;"><strong>强化方案（不能根治但可降低风险）：</strong></p>
+                    <ul>
+                        <li><strong>RedLock 算法</strong>：多个独立 Redis 过半成功才算加锁</li>
+                        <li><strong>看门狗续约</strong>：持锁期间自动续期防止误过期</li>
+                        <li><strong>Lua 脚本原子释放</strong>：判断持有者 = 自己才能释放锁</li>
+                    </ul>
+                    <p style="margin-top: 12px; color: #c62828; font-size: 14px;"><strong>⚠️ 适用场景：</strong>秒杀/限流（AP可接受）；<strong>不适用</strong>：金融交易/资金扣减（需 ZK/etcd）。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-medium">🟡 高频</div>
+                <div class="card-title">Redis 数据分片：一致性哈希</div>
+                <div class="card-content">
+                    <p><strong>普通哈希分片的问题：</strong></p>
+                    <p>节点数变化时（N→N+1），几乎所有 key 的 hash(key)%N 都变化 → 大面积数据迁移。</p>
+                    <p style="margin-top: 12px;"><strong>一致性哈希的优势：</strong></p>
+                    <ul>
+                        <li>把节点和 key 都映射到一个 0~2^32 的环上</li>
+                        <li>新增节点时，只影响环上"下一段"的 key</li>
+                        <li><strong>数据迁移量最少</strong>（案例题采分关键词）</li>
+                    </ul>
+                    <p style="margin-top: 12px;"><strong>虚拟节点</strong>：解决数据倾斜（不均匀）问题</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 标准答题词 -->
+        <h2 class="section-title" id="section-scoring">标准答题词 vs 踩雷词</h2>
+        <table class="scoring-table">
+            <thead>
+                <tr>
+                    <th style="width:25%">考点</th>
+                    <th style="width:37%">✅ 标准答题词（踩分）</th>
+                    <th style="width:38%">❌ 踩雷词（不给分）</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>用户画像标签</td><td class="right"><strong>Set</strong>（无序集合，去重+集合运算）</td><td class="wrong">Hash、List、String</td></tr>
+                <tr><td>分布式锁</td><td class="right"><strong>String</strong>（SET NX PX）</td><td class="wrong">Hash、Set</td></tr>
+                <tr><td>销售周排行榜</td><td class="right"><strong>ZSet</strong>（有序集合，带分数）</td><td class="wrong">List、Set</td></tr>
+                <tr><td>LRU 算法基础</td><td class="right"><strong>局部性原理</strong></td><td class="wrong">LRU 本身、最近最少使用</td></tr>
+                <tr><td>LRU 淘汰对象</td><td class="right"><strong>最近未/最少被使用的数据</strong></td><td class="wrong">最早创建的数据、随机数据</td></tr>
+                <tr><td>布隆过滤器作用</td><td class="right">解决<strong>缓存穿透</strong></td><td class="wrong">缓存击穿、雪崩</td></tr>
+                <tr><td>布隆过滤器缺点</td><td class="right">① <strong>误判率</strong> ② <strong>无法删除</strong> ③ 不能存原始数据（≥2 点）</td><td class="wrong">性能差、占空间大</td></tr>
+                <tr><td>分布式锁关键特性</td><td class="right"><strong>互斥性</strong></td><td class="wrong">一致性、可用性</td></tr>
+                <tr><td>SETNX</td><td class="right"><strong>原子操作</strong>（不存在才设置）</td><td class="wrong">普通 SET、GETSET</td></tr>
+                <tr><td>数据分片迁移最少</td><td class="right"><strong>一致性哈希</strong></td><td class="wrong">普通哈希、范围分片</td></tr>
+            </tbody>
+        </table>
+
+        <!-- 对比表 -->
+        <h2 class="section-title">Redis 数据结构场景速查表</h2>
+        <table class="comparison-table">
+            <thead>
+                <tr><th>数据结构</th><th>典型场景</th><th>关键操作</th><th>时间复杂度</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>String</strong></td><td>计数器、分布式锁、缓存</td><td>GET/SET/INCR/SETNX</td><td>O(1)</td></tr>
+                <tr><td><strong>Hash</strong></td><td>对象属性、购物车</td><td>HGET/HSET/HGETALL</td><td>O(1)/O(N)</td></tr>
+                <tr><td><strong>List</strong></td><td>消息队列、最新记录</td><td>LPUSH/RPOP/LRANGE</td><td>O(1)/O(N)</td></tr>
+                <tr><td><strong>Set</strong></td><td>用户标签、去重、分群</td><td>SADD/SISMEMBER/SINTER</td><td>O(1)</td></tr>
+                <tr><td><strong>ZSet</strong></td><td>排行榜、延迟队列</td><td>ZADD/ZRANGE/ZREVRANK</td><td>O(logN)</td></tr>
+            </tbody>
+        </table>
+
+        <!-- 记忆口诀 -->
+        <h2 class="section-title" id="section-memory">记忆口诀</h2>
+        <div class="memory-tricks">
+            <div class="memory-item">
+                <div class="memory-label">数据结构-场景映射</div>
+                <div class="memory-text">标签用 Set，锁用 String，排行用 ZSet，属性用 Hash，队列用 List</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">LRU 考点口诀</div>
+                <div class="memory-text">LRU 基于"局部性"，淘汰"最近未被用"，范围看"volatile/allkeys"</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">缓存三问题区分</div>
+                <div class="memory-text">穿透不存在（布隆挡），击穿热点死（互斥锁），雪崩全过期（加随机）</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">布隆过滤器 3 缺点</div>
+                <div class="memory-text">误判率、不能删、不存原始数据（"一错二不能"）</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">分布式锁 4 特性</div>
+                <div class="memory-text">互斥防死重入安全（互斥性 + 防死锁 + 可重入 + 解锁安全）</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">Redis 锁加锁命令</div>
+                <div class="memory-text">SET key val NX PX 30000（NX 互斥 + PX 过期，一条原子搞定）</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">Redis 锁非强一致原因</div>
+                <div class="memory-text">主从延迟 + AP 模型 + 时钟漂移（强化用 RedLock + 看门狗 + Lua）</div>
+            </div>
+        </div>
+
+        <!-- 测试题 -->
+        <h2 class="section-title" id="section-tests">测试题（10题，自动判分）</h2>
+        <div class="test-section">
+            <div class="test-controls">
+                <button class="btn btn-primary" onclick="submitTest()">提交答卷</button>
+                <button class="btn btn-danger" onclick="resetTest()">重置答卷</button>
+                <button class="btn btn-success" onclick="showAllAnswers()">显示所有答案</button>
+            </div>
+            <div class="questions-container">
+
+                <div class="question">
+                    <div class="question-number">Q1：某电商网站要为每个用户存储"标签集合"（如"男性""学生""北京用户"）并支持分群计算，最合适的 Redis 数据结构是？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">Hash</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">Set</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">List</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">String</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：B</div>
+                        <div class="answer-reveal-text">Set 天然去重、O(1) 判存在、支持 SINTER/SUNION/SDIFF 集合运算做分群，完美匹配用户画像场景。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q2：LRU 淘汰策略的核心思想基于什么原理？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">随机原理</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">先进先出原理</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">局部性原理</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">哈希均匀原理</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：C</div>
+                        <div class="answer-reveal-text">LRU 基于局部性原理——"最近访问过的数据，未来更可能再被访问"。这是案例填空的采分关键词。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q3：布隆过滤器主要解决什么问题？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">缓存击穿（热点 key 过期）</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">缓存雪崩（大量 key 同时过期）</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">缓存穿透（查询不存在的 key）</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">缓存一致性问题</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：C</div>
+                        <div class="answer-reveal-text">布隆过滤器快速判断"key 是否一定不存在"，拦截不存在的请求直接打到 DB，解决缓存穿透。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q4：以下哪项不是布隆过滤器的缺点？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">存在误判率（假阳性）</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">无法删除已添加的元素</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">只能判断有无，不能存储实际数据</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">查询时间复杂度高达 O(N)</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：D</div>
+                        <div class="answer-reveal-text">布隆过滤器查询时间复杂度为 O(K)（K 是哈希函数个数，固定），非常快。A/B/C 都是教材标准缺点。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q5：Redis 分布式锁的关键特性是？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">一致性</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">互斥性</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">可用性</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">持久性</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：B</div>
+                        <div class="answer-reveal-text">分布式锁最核心的特性就是互斥性（同一时刻只有一个客户端持锁）。一致性是 Redis 本身的弱项，不是锁的"特性"。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q6：Redis 实现分布式锁的正确原子命令是？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">SET key value + EXPIRE key 30</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">SET key value NX PX 30000</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">SETEX key 30 value</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">GETSET key value</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：B</div>
+                        <div class="answer-reveal-text">SET key value NX PX 30000 在一条命令中原子完成"不存在才设置 + 设置过期时间"。选项 A 分两条命令，非原子；C 无 NX；D 无法加过期。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q7：Redis 分布式锁不能保证强一致性的原因不包括？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">主从同步延迟</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">Redis 是 AP 模型</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">时钟漂移</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">SETNX 不是原子操作</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：D</div>
+                        <div class="answer-reveal-text">SETNX/SET NX 是原子操作（单节点内）。非强一致的原因是 A/B/C 三者，不包括 D。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q8：扩容集群节点时，以下哪种分片方案能使数据迁移最少？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">按 key 模 N 的普通哈希分片</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">按 key 范围分片（a-m / n-z）</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">一致性哈希</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">随机分配</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：C</div>
+                        <div class="answer-reveal-text">一致性哈希通过环形结构，扩容时只影响环上下一段数据，迁移量最少。普通哈希扩容会导致大面积重分布。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q9：某系统需要实现"销售排行榜 Top 10"，最佳 Redis 数据结构是？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">List</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">Set</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">Hash</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">ZSet（有序集合）</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：D</div>
+                        <div class="answer-reveal-text">ZSet 带分数（销售额），支持 ZRANGE/ZREVRANGE 快速取 Top N，是排行榜场景的标准选择。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q10：关于 volatile-lru 和 allkeys-lru 的区别，正确的是？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">两者淘汰算法完全不同</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">volatile-lru 只淘汰带过期时间的 key；allkeys-lru 淘汰所有 key</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">allkeys-lru 只淘汰永久 key；volatile-lru 淘汰所有 key</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">两者的适用场景完全相同</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：B</div>
+                        <div class="answer-reveal-text">volatile-* 只对带过期时间的 key 生效；allkeys-* 对所有 key 生效。算法（LRU）本身相同，仅作用范围不同。纯缓存首选 allkeys-lru。</div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="test-result" id="testResult">
+                <div class="result-score" id="scoreDisplay">得分：0/10</div>
+                <div class="result-details" id="resultDetails"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>软考系统架构师 - 案例 2：Redis 缓存与分布式锁 | 最后更新：2026-04-20</p>
+            <p>对应案例：Redis 案例（得分 19/25）</p>
+        </div>
+    </div>
+
+    <script>
+        const answers = ['B','C','C','D','B','B','D','C','D','B'];
+        const topics = ['Set vs Hash','LRU 局部性原理','布隆解决穿透','布隆缺点','分布式锁互斥性','SET NX PX 命令','Redis 锁非强一致原因','一致性哈希','排行榜用 ZSet','volatile-lru vs allkeys-lru'];
+        function toggleAnswer(btn){const r=btn.nextElementSibling;r.classList.toggle('show');btn.textContent=r.classList.contains('show')?'隐藏答案':'显示答案';}
+        function showAllAnswers(){document.querySelectorAll('.question').forEach(q=>{const b=q.querySelector('.answer-button'),r=q.querySelector('.answer-reveal');if(!r.classList.contains('show')){r.classList.add('show');b.textContent='隐藏答案';}});}
+        function submitTest(){let s=0;const ua=[];document.querySelectorAll('.question').forEach((q,i)=>{const sel=q.querySelector('input[type="radio"]:checked');if(sel){ua.push(sel.value);if(sel.value===answers[i])s++;}else ua.push(null);});displayResult(s,ua);}
+        function displayResult(s,ua){const p=Math.round(s/10*100),e=p>=80?'🎉':p>=60?'👍':'💪';const wt=[];ua.forEach((a,i)=>{if(a!==answers[i])wt.push(topics[i]);});const d=new Date().toLocaleDateString('zh-CN');const t=`【软考练习成绩·自动存档】\n科目：案例2 Redis 缓存与分布式锁（10题）\n日期：${d}\n得分：${s}/10（${p}%）${e}\n详情：答对${s}题，答错${10-s}题\n错误知识点：${wt.length>0?wt.join('、'):'全部正确！'}`;document.getElementById('scoreDisplay').textContent=`得分：${s}/10 (${p}%) ${e}`;document.getElementById('resultDetails').innerHTML=t.split('\n').map(l=>`<div>${l}</div>`).join('');document.getElementById('testResult').classList.add('show');navigator.clipboard.writeText(t).catch(()=>{});}
+        function resetTest(){document.querySelectorAll('.question').forEach(q=>{q.querySelectorAll('input[type="radio"]').forEach(i=>i.checked=false);q.querySelector('.answer-reveal').classList.remove('show');q.querySelector('.answer-button').textContent='显示答案';});document.getElementById('testResult').classList.remove('show');}
+        document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.question').forEach((q,qi)=>{q.querySelectorAll('.option').forEach(o=>{const l=o.querySelector('.option-letter').textContent;const i=document.createElement('input');i.type='radio';i.name=`q${qi}`;i.value=l;i.style.marginRight='8px';o.insertBefore(i,o.firstChild);});});});
+    </script>
+</body>
+</html>

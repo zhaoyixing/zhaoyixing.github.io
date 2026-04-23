@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>软考系统架构师 - 案例3：负载均衡与有状态/无状态服务</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background-color: #faf8f3; line-height: 1.7; color: #333; }
+        .nav-bar { position: sticky; top: 0; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); z-index: 100; }
+        .nav-container { max-width: 1200px; margin: 0 auto; display: flex; height: 60px; }
+        .nav-logo { display: flex; align-items: center; padding: 0 20px; font-size: 18px; font-weight: bold; color: #1b5e20; min-width: 200px; border-right: 1px solid #eee; }
+        .nav-links { display: flex; flex: 1; list-style: none; }
+        .nav-links li { display: flex; align-items: center; flex: 1; border-right: 1px solid #eee; cursor: pointer; transition: all 0.3s ease; }
+        .nav-links li:last-child { border-right: none; }
+        .nav-links li a { flex: 1; display: flex; align-items: center; justify-content: center; text-decoration: none; color: #666; font-size: 14px; }
+        .nav-links li.active a { color: #1b5e20; font-weight: bold; }
+        .nav-links li:hover { background-color: #f5f5f5; }
+        .hero { background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 60%, #4caf50 100%); color: white; padding: 60px 20px; text-align: center; }
+        .hero-content { max-width: 1200px; margin: 0 auto; }
+        .hero h1 { font-size: 42px; margin-bottom: 15px; font-weight: bold; }
+        .hero p { font-size: 18px; opacity: 0.95; margin-bottom: 10px; }
+        .hero-subtitle { font-size: 16px; opacity: 0.85; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .section-title { font-size: 28px; color: #1b5e20; margin: 50px 0 30px; padding-bottom: 15px; border-bottom: 3px solid #e8734a; font-weight: bold; }
+        .case-box { background: linear-gradient(135deg, #fff8e1 0%, #ffe0b2 100%); border-left: 6px solid #e8734a; border-radius: 8px; padding: 25px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .case-box h3 { color: #bf360c; font-size: 20px; margin-bottom: 15px; }
+        .case-box p { font-size: 15px; line-height: 1.8; color: #333; margin-bottom: 10px; }
+        .case-box .case-score { display: inline-block; padding: 4px 12px; background: #ff9800; color: white; border-radius: 15px; font-size: 13px; font-weight: bold; margin-left: 10px; }
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; margin-bottom: 40px; }
+        .card { background: white; border-radius: 8px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s ease; border-left: 4px solid #1b5e20; }
+        .card:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.12); transform: translateY(-5px); }
+        .card-title { font-size: 20px; font-weight: bold; color: #1b5e20; margin-bottom: 15px; }
+        .card-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+        .badge-super { background-color: #ffcdd2; color: #b71c1c; }
+        .badge-high { background-color: #ffebee; color: #c62828; }
+        .badge-medium { background-color: #fff3e0; color: #e65100; }
+        .badge-low { background-color: #f1f8e9; color: #558b2f; }
+        .card-content { font-size: 15px; line-height: 1.8; color: #555; }
+        .card-content ul, .card-content ol { margin: 15px 0 15px 25px; }
+        .card-content li { margin-bottom: 12px; }
+        .highlight { background-color: #fef3cd; padding: 2px 6px; border-radius: 3px; font-weight: 500; }
+        .comparison-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 40px; }
+        .comparison-table th { background-color: #1b5e20; color: white; padding: 15px; text-align: left; font-weight: bold; }
+        .comparison-table td { padding: 15px; border-bottom: 1px solid #eee; }
+        .comparison-table tbody tr:hover { background-color: #faf8f3; }
+        .comparison-table tbody tr:nth-child(even) { background-color: #fafbfc; }
+        .scoring-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 8px; overflow: hidden; }
+        .scoring-table th { background-color: #2e7d32; color: white; padding: 15px; }
+        .scoring-table td { padding: 12px 15px; border-bottom: 1px solid #eee; vertical-align: top; }
+        .scoring-table .right { color: #2e7d32; font-weight: bold; }
+        .scoring-table .wrong { color: #c62828; text-decoration: line-through; }
+        .memory-tricks { background: white; border-radius: 8px; padding: 30px; margin-bottom: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 4px solid #e8734a; }
+        .memory-item { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .memory-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .memory-label { font-weight: bold; color: #1b5e20; font-size: 16px; margin-bottom: 8px; }
+        .memory-text { font-size: 15px; color: #e8734a; padding: 10px 15px; background-color: #fff5f0; border-radius: 5px; }
+        .questions-container { background: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .question { margin-bottom: 30px; padding-bottom: 30px; border-bottom: 1px solid #eee; }
+        .question:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .question-number { font-weight: bold; color: #1b5e20; font-size: 16px; margin-bottom: 8px; }
+        .options { margin-left: 20px; }
+        .option { display: flex; margin-bottom: 8px; cursor: pointer; padding: 8px; border-radius: 5px; transition: all 0.2s ease; }
+        .option:hover { background-color: #f5f5f5; }
+        .option-letter { min-width: 30px; font-weight: bold; color: #1b5e20; }
+        .option-text { flex: 1; color: #555; }
+        .answer-button { display: inline-block; margin-top: 10px; padding: 8px 16px; background-color: #1b5e20; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .answer-button:hover { background-color: #0d3e10; }
+        .answer-reveal { margin-top: 15px; padding: 12px; background-color: #e8f5e9; border-left: 4px solid #4caf50; border-radius: 5px; display: none; }
+        .answer-reveal.show { display: block; }
+        .answer-reveal-title { font-weight: bold; color: #2e7d32; margin-bottom: 5px; }
+        .answer-reveal-text { color: #555; font-size: 14px; line-height: 1.6; }
+        .test-section { margin-top: 50px; }
+        .test-controls { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        .btn-primary { background-color: #1b5e20; color: white; }
+        .btn-primary:hover { background-color: #0d3e10; }
+        .btn-success { background-color: #4caf50; color: white; }
+        .btn-success:hover { background-color: #388e3c; }
+        .btn-danger { background-color: #f44336; color: white; }
+        .btn-danger:hover { background-color: #da190b; }
+        .test-result { margin-top: 30px; padding: 20px; background-color: #f5f5f5; border-radius: 8px; display: none; }
+        .test-result.show { display: block; }
+        .result-score { font-size: 28px; font-weight: bold; color: #1b5e20; margin-bottom: 15px; }
+        .result-details { font-size: 14px; color: #666; line-height: 1.8; }
+        .footer { text-align: center; padding: 30px 20px; color: #999; font-size: 14px; border-top: 1px solid #eee; margin-top: 50px; }
+        @media (max-width: 768px) {
+            .nav-container { flex-direction: column; height: auto; }
+            .nav-links { flex-direction: column; }
+            .nav-links li { border-right: none; border-bottom: 1px solid #eee; }
+            .cards-grid { grid-template-columns: 1fr; }
+            .hero h1 { font-size: 28px; }
+            .section-title { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">
+        <div class="nav-container">
+            <div class="nav-logo">软考系统架构师</div>
+            <ul class="nav-links">
+                <li class="active"><a href="#section-case">案例回顾</a></li>
+                <li><a href="#section-lectures">考点精讲</a></li>
+                <li><a href="#section-scoring">标准答题词</a></li>
+                <li><a href="#section-memory">记忆口诀</a></li>
+                <li><a href="#section-tests">测试题</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="hero">
+        <div class="hero-content">
+            <h1>案例3：负载均衡与有状态/无状态服务</h1>
+            <p>Load Balancing &amp; Stateful/Stateless Services</p>
+            <p class="hero-subtitle">攻克：LVS/Nginx/HAProxy · 负载算法 · 状态服务判断 · 水平扩展</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 案例回顾 -->
+        <h2 class="section-title" id="section-case">案例原题回顾</h2>
+        <div class="case-box">
+            <h3>📋 案例背景：某分布式 Web 系统的负载均衡与服务构件状态设计<span class="case-score">2026-04-20 得分：17/25</span></h3>
+            <p><strong>问题 1（8 分）</strong>：填空题。① 列举 2 种软件负载均衡的常见实现；② 相同来源请求分到同一服务器的静态算法；③ 根据服务器性能差异分配的静态算法。</p>
+            <p><strong>问题 2（6 分）</strong>：说明"加权最小连接数"算法的适用场景及其与普通"最小连接数"的区别。</p>
+            <p><strong>问题 3（11 分）</strong>：系统有 5 种服务构件——(a) 身份认证、(b) 资源发布、(c) 资源检索、(d) 在线编辑、(e) 统计分析，要求：① 分类为有状态/无状态；② 解释为什么统计分析要设计为无状态。</p>
+            <p style="margin-top: 15px; padding: 10px; background: #fff; border-radius: 5px;"><strong>失分主因</strong>：① 软件负载均衡误写"DNS 负载均衡"（DNS 属于全局负载均衡）；② "资源发布"误判为有状态（应为无状态）。</p>
+        </div>
+
+        <!-- 考点精讲 -->
+        <h2 class="section-title" id="section-lectures">考点精讲</h2>
+        <div class="cards-grid">
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">负载均衡的两大分类</div>
+                <div class="card-content">
+                    <p><strong>按部署位置分类：</strong></p>
+                    <ul>
+                        <li><strong>软件负载均衡</strong>：部署在服务器上的软件，如 LVS、HAProxy、Nginx</li>
+                        <li><strong>硬件负载均衡</strong>：专用设备，如 F5、A10</li>
+                        <li><strong>全局负载均衡（GSLB）</strong>：跨地域，如 <span class="highlight">DNS 负载均衡</span>、智能 DNS</li>
+                    </ul>
+                    <p style="margin-top: 15px; color: #c62828; font-size: 14px;"><strong>⚠️ 踩雷：</strong>案例题问"软件负载均衡的常见实现"时，DNS 是错的！DNS 属于全局负载均衡。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">软件负载均衡三件套</div>
+                <div class="card-content">
+                    <ul>
+                        <li><strong>LVS（Linux Virtual Server）</strong>
+                            <br>四层（传输层 TCP/UDP）<br>性能最高，不解析 HTTP
+                        </li>
+                        <li style="margin-top:10px;"><strong>Nginx</strong>
+                            <br>七层（应用层 HTTP）<br>最灵活，支持动静分离、反向代理
+                        </li>
+                        <li style="margin-top:10px;"><strong>HAProxy</strong>
+                            <br>兼顾四层 + 七层<br>高并发 TCP 代理首选
+                        </li>
+                    </ul>
+                    <p style="margin-top: 15px; background: #fff5f0; padding: 10px; border-radius: 5px; font-size: 14px;"><strong>记忆：LVS 四层最快 / Nginx 七层最灵 / HAProxy 兼得</strong></p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">负载均衡算法（静态 + 动态）</div>
+                <div class="card-content">
+                    <p><strong>静态算法（不看实时状态）：</strong></p>
+                    <ul>
+                        <li><strong>轮询（RR）</strong>：依次分配</li>
+                        <li><strong>加权轮询（WRR）</strong>：按性能权重分配</li>
+                        <li><strong>随机（Random）</strong>：随机选择</li>
+                        <li><strong>源地址哈希（IP Hash）</strong>：<span class="highlight">相同客户端→同一服务器</span>（会话保持）</li>
+                    </ul>
+                    <p style="margin-top: 12px;"><strong>动态算法（看实时状态）：</strong></p>
+                    <ul>
+                        <li><strong>最小连接数（LC）</strong>：连接最少的服务器优先</li>
+                        <li><strong>加权最小连接数（WLC）</strong>：连接数 + 权重</li>
+                        <li><strong>最短响应时间</strong>：响应最快的优先</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-high">🔴 高频</div>
+                <div class="card-title">加权最小连接数详解</div>
+                <div class="card-content">
+                    <p><strong>适用场景：</strong></p>
+                    <p style="color: #2e7d32;"><strong>后端服务器性能差异较大</strong>——比如部分服务器 CPU/内存配置更高，能处理更多请求。</p>
+                    <p style="margin-top: 15px;"><strong>与普通最小连接数的区别：</strong></p>
+                    <table style="width:100%; font-size:14px; margin-top:10px;">
+                        <tr style="background:#f0f8ff;"><th>算法</th><th>考虑因素</th><th>问题</th></tr>
+                        <tr><td><strong>最小连接数</strong></td><td>只看当前连接数</td><td>性能弱的服务器可能过载</td></tr>
+                        <tr><td><strong>加权最小连接数</strong></td><td>连接数 + 权重</td><td>高配机器分担更多连接，实现"按能力分配"</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">有状态 vs 无状态服务（核心判断）</div>
+                <div class="card-content">
+                    <p><strong>🎯 判断标准：服务端是否需要记住会话/进度/上下文？</strong></p>
+                    <table style="width:100%; font-size:14px; margin-top:12px;">
+                        <tr style="background:#ffebee;"><th>类型</th><th>特征</th><th>典型例子</th></tr>
+                        <tr><td><strong>有状态</strong></td><td>服务端需维护会话/上下文</td><td><strong>身份认证</strong>（存 session）<br><strong>在线编辑</strong>（存文档状态/锁）</td></tr>
+                        <tr><td><strong>无状态</strong></td><td>每次请求独立完成</td><td><strong>资源发布</strong>（一次存库即完成）<br><strong>资源检索</strong>（请求独立）<br><strong>统计分析</strong></td></tr>
+                    </table>
+                    <p style="margin-top: 15px; color: #c62828; font-size: 14px;"><strong>⚠️ 最常见踩雷：</strong>资源发布<strong>不是</strong>有状态！只要不需要服务端记住"我上次发到哪了"，就是无状态。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-super">🔴 超高频必背</div>
+                <div class="card-title">无状态服务的 3 大好处</div>
+                <div class="card-content">
+                    <p>案例题问"为什么设计为无状态"，<span class="highlight">必答三点</span>：</p>
+                    <ol style="margin-top: 12px;">
+                        <li><strong>可伸缩性强</strong><br>任意服务器都可处理任意请求，方便<strong>水平扩展</strong>和<strong>负载均衡</strong></li>
+                        <li><strong>容错性好</strong><br>服务器重启/故障不会丢状态，<strong>可用性更高</strong></li>
+                        <li><strong>避免状态同步复杂性</strong><br>无需跨节点同步 session 或上下文，降低开发/运维难度</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-medium">🟡 中频</div>
+                <div class="card-title">有状态服务的横向扩展方案</div>
+                <div class="card-content">
+                    <p>如果某服务必须有状态（如身份认证），如何解决水平扩展问题？</p>
+                    <ul>
+                        <li><strong>Session 集中存储</strong>：存入 Redis/Memcached（把状态外置）</li>
+                        <li><strong>Sticky Session</strong>（会话粘滞）：用 IP Hash 保持同客户端到同服务器</li>
+                        <li><strong>Token 无状态化</strong>：用 JWT 把状态编码进 token，转成"伪无状态"</li>
+                    </ul>
+                    <p style="margin-top: 12px; color: #2e7d32; font-size: 14px;"><strong>💡 趋势：</strong>现代架构倾向把状态外置（Redis）或 Token 化，让服务尽可能无状态。</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-badge badge-medium">🟡 中频</div>
+                <div class="card-title">七层 vs 四层负载均衡</div>
+                <div class="card-content">
+                    <table style="width:100%; font-size:14px;">
+                        <tr style="background:#fff3e0;"><th></th><th>四层（L4）</th><th>七层（L7）</th></tr>
+                        <tr><td><strong>工作层</strong></td><td>传输层 TCP/UDP</td><td>应用层 HTTP</td></tr>
+                        <tr><td><strong>转发依据</strong></td><td>IP + 端口</td><td>URL / Header / Cookie</td></tr>
+                        <tr><td><strong>性能</strong></td><td>高</td><td>较低</td></tr>
+                        <tr><td><strong>代表</strong></td><td>LVS、F5</td><td>Nginx、HAProxy</td></tr>
+                        <tr><td><strong>场景</strong></td><td>TCP 长连接</td><td>动静分离、URL 路由</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 标准答题词 -->
+        <h2 class="section-title" id="section-scoring">标准答题词 vs 踩雷词</h2>
+        <table class="scoring-table">
+            <thead>
+                <tr>
+                    <th style="width:25%">考点</th>
+                    <th style="width:37%">✅ 标准答题词（踩分）</th>
+                    <th style="width:38%">❌ 踩雷词（不给分）</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>软件负载均衡实现</td><td class="right"><strong>LVS / HAProxy / Nginx</strong>（任选两个）</td><td class="wrong">DNS 负载均衡、F5（硬件）</td></tr>
+                <tr><td>源地址哈希算法</td><td class="right"><strong>源地址哈希（Source Hash / IP Hash）</strong></td><td class="wrong">"源 IP 分配"、"用户绑定"</td></tr>
+                <tr><td>加权轮询</td><td class="right"><strong>加权轮询（WRR, Weighted Round Robin）</strong></td><td class="wrong">"按性能分"、"按权重"</td></tr>
+                <tr><td>资源发布</td><td class="right"><strong>无状态</strong>（一次请求完成）</td><td class="wrong">有状态</td></tr>
+                <tr><td>资源检索</td><td class="right"><strong>无状态</strong>（请求独立）</td><td class="wrong">有状态</td></tr>
+                <tr><td>统计分析</td><td class="right"><strong>无状态</strong>（不依赖前序请求）</td><td class="wrong">有状态</td></tr>
+                <tr><td>身份认证</td><td class="right"><strong>有状态</strong>（维护 session）</td><td class="wrong">无状态</td></tr>
+                <tr><td>在线编辑</td><td class="right"><strong>有状态</strong>（维护文档上下文/锁）</td><td class="wrong">无状态</td></tr>
+                <tr><td>无状态好处（答 2+）</td><td class="right">① <strong>可伸缩性</strong> ② <strong>容错性</strong> ③ <strong>避免状态同步</strong></td><td class="wrong">性能高、安全、开发快</td></tr>
+                <tr><td>加权最小连接数适用</td><td class="right"><strong>后端服务器性能差异大</strong>的场景</td><td class="wrong">请求量大、并发高</td></tr>
+            </tbody>
+        </table>
+
+        <!-- 对比表 -->
+        <h2 class="section-title">LVS vs Nginx vs HAProxy 对比</h2>
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>LVS</th>
+                    <th>Nginx</th>
+                    <th>HAProxy</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>工作层</strong></td><td>四层（TCP/UDP）</td><td>七层（HTTP 为主）</td><td>四层 + 七层</td></tr>
+                <tr><td><strong>性能</strong></td><td>⭐⭐⭐⭐⭐ 最高</td><td>⭐⭐⭐ 中</td><td>⭐⭐⭐⭐ 高</td></tr>
+                <tr><td><strong>功能丰富度</strong></td><td>⭐⭐ 低</td><td>⭐⭐⭐⭐⭐ 最丰富</td><td>⭐⭐⭐⭐ 较丰富</td></tr>
+                <tr><td><strong>支持健康检查</strong></td><td>有限</td><td>较弱（需 plus）</td><td>强</td></tr>
+                <tr><td><strong>配置复杂度</strong></td><td>高（内核态）</td><td>低</td><td>中</td></tr>
+                <tr><td><strong>典型场景</strong></td><td>大流量四层代理</td><td>Web 静态/动态分离</td><td>高并发 TCP/HTTP</td></tr>
+            </tbody>
+        </table>
+
+        <!-- 记忆口诀 -->
+        <h2 class="section-title" id="section-memory">记忆口诀</h2>
+        <div class="memory-tricks">
+            <div class="memory-item">
+                <div class="memory-label">软件负载均衡三件套</div>
+                <div class="memory-text">LVS 四层快，Nginx 七层灵，HAProxy 兼顾两层（DNS 是全局，不算软件！）</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">负载均衡算法速记</div>
+                <div class="memory-text">静态：轮询、加权轮询、随机、IP 哈希；动态：最小连接、加权最小连接、最短响应</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">加权最小连接数适用</div>
+                <div class="memory-text">"服务器性能差异大"——高配机器分担更多连接</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">有状态 vs 无状态判断</div>
+                <div class="memory-text">要记会话/进度/上下文→有状态；一次请求完一件事→无状态</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">典型服务分类</div>
+                <div class="memory-text">有状态：认证、在线编辑；无状态：发布、检索、统计分析</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">无状态服务 3 好处</div>
+                <div class="memory-text">可伸缩 + 容错好 + 无同步复杂（"横向扩展无负担"）</div>
+            </div>
+            <div class="memory-item">
+                <div class="memory-label">有状态横向扩展方案</div>
+                <div class="memory-text">Session 外置（Redis）+ Sticky Session + JWT Token 无状态化</div>
+            </div>
+        </div>
+
+        <!-- 测试题 -->
+        <h2 class="section-title" id="section-tests">测试题（10题，自动判分）</h2>
+        <div class="test-section">
+            <div class="test-controls">
+                <button class="btn btn-primary" onclick="submitTest()">提交答卷</button>
+                <button class="btn btn-danger" onclick="resetTest()">重置答卷</button>
+                <button class="btn btn-success" onclick="showAllAnswers()">显示所有答案</button>
+            </div>
+            <div class="questions-container">
+
+                <div class="question">
+                    <div class="question-number">Q1：以下哪个不是软件负载均衡的典型实现？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">LVS</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">Nginx</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">HAProxy</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">DNS 负载均衡</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：D</div>
+                        <div class="answer-reveal-text">DNS 负载均衡属于全局负载均衡（GSLB）的范畴，不是软件负载均衡的典型实现。软件负载均衡三件套是 LVS / HAProxy / Nginx。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q2：需要让"来自同一 IP 的请求始终分到同一台服务器"，应选哪种算法？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">轮询（RR）</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">加权轮询（WRR）</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">源地址哈希（IP Hash）</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">随机</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：C</div>
+                        <div class="answer-reveal-text">源地址哈希（IP Hash）对客户端 IP 计算哈希值来选择服务器，保证同一 IP 始终命中同一服务器，常用于简单会话保持。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q3：加权最小连接数算法最适合以下哪种场景？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">所有服务器配置完全相同</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">后端服务器性能差异较大</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">服务器无状态且请求数低</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">所有请求处理时间相同</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：B</div>
+                        <div class="answer-reveal-text">加权最小连接数在最小连接数基础上引入权重，让高配机器分担更多连接，适用于后端服务器性能差异大的场景。若配置相同，普通最小连接数就够用。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q4：某系统有 5 种服务构件：身份认证、资源发布、资源检索、在线编辑、统计分析。下列分类正确的是？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">有状态：身份认证、资源发布；无状态：资源检索、在线编辑、统计分析</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">有状态：身份认证、在线编辑；无状态：资源发布、资源检索、统计分析</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">有状态：资源发布、在线编辑；无状态：身份认证、资源检索、统计分析</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">全部是有状态</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：B</div>
+                        <div class="answer-reveal-text">身份认证维护 session → 有状态；在线编辑维护文档上下文/锁 → 有状态；资源发布、资源检索、统计分析都是一次请求完成，不依赖上下文 → 无状态。资源发布常被误判为有状态！</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q5：将服务设计为无状态的主要好处不包括？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">提升可伸缩性，便于水平扩展</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">容错性好，服务重启不丢状态</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">避免跨节点状态同步的复杂性</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">保证强一致性</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：D</div>
+                        <div class="answer-reveal-text">无状态与"强一致性"无关。A/B/C 三点是教材标准的三大好处，必须背熟。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q6：LVS 工作在 OSI 的哪一层？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">数据链路层（二层）</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">网络层（三层）</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">传输层（四层）</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">应用层（七层）</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：C</div>
+                        <div class="answer-reveal-text">LVS 工作在传输层（四层），基于 TCP/UDP 转发，不解析 HTTP，性能最高。Nginx 主要工作在七层。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q7：关于有状态服务的横向扩展方案，下列哪项不正确？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">将 Session 集中存入 Redis</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">使用 Sticky Session（IP Hash）</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">使用 JWT Token 把状态编码进 Token</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">在每台服务器各自维护独立的内存 Session，不做同步</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：D</div>
+                        <div class="answer-reveal-text">独立内存 Session 不同步会导致用户请求被分到其他服务器时丢失登录状态，无法支持水平扩展。A/B/C 都是常用方案。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q8：以下关于加权轮询（WRR）的描述正确的是？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">动态算法，看服务器实时连接数</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">静态算法，根据服务器配置权重循环分配</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">只能在 LVS 中实现</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">会保证同一客户端请求到同一服务器</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：B</div>
+                        <div class="answer-reveal-text">加权轮询是典型静态算法，不看实时状态，按权重比例循环分配。同一客户端到同一服务器是 IP Hash 的特性。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q9：Web 应用需要做动静分离（HTML 走静态 CDN、API 走后端），最适合的负载均衡工具是？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">LVS</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">Nginx</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">F5</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">DNS</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：B</div>
+                        <div class="answer-reveal-text">Nginx 工作在七层，能根据 URL/路径做动静分离、反向代理，是 Web 应用的标配。LVS 只做四层转发，无法看 URL。</div>
+                    </div>
+                </div>
+
+                <div class="question">
+                    <div class="question-number">Q10：下列哪个服务最适合被设计为"无状态"？</div>
+                    <div class="options">
+                        <div class="option"><span class="option-letter">A</span><span class="option-text">在线文档协同编辑</span></div>
+                        <div class="option"><span class="option-letter">B</span><span class="option-text">网游战斗实时同步</span></div>
+                        <div class="option"><span class="option-letter">C</span><span class="option-text">订单数据统计分析</span></div>
+                        <div class="option"><span class="option-letter">D</span><span class="option-text">视频会议房间管理</span></div>
+                    </div>
+                    <button class="answer-button" onclick="toggleAnswer(this)">显示答案</button>
+                    <div class="answer-reveal">
+                        <div class="answer-reveal-title">✓ 正确答案：C</div>
+                        <div class="answer-reveal-text">订单统计分析每次请求独立（按时间范围查数据→聚合→返回），不依赖上下文，典型无状态。A/B/D 都需要维护实时会话/房间状态。</div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="test-result" id="testResult">
+                <div class="result-score" id="scoreDisplay">得分：0/10</div>
+                <div class="result-details" id="resultDetails"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>软考系统架构师 - 案例 3：负载均衡与有状态/无状态服务 | 最后更新：2026-04-20</p>
+            <p>对应案例：负载均衡案例（得分 17/25）</p>
+        </div>
+    </div>
+
+    <script>
+        const answers = ['D','C','B','B','D','C','D','B','B','C'];
+        const topics = ['软件负载均衡实现','源地址哈希','加权最小连接数适用','有状态/无状态分类','无状态好处','LVS 工作层','有状态横向扩展','加权轮询定义','Nginx 动静分离','无状态典型服务'];
+        function toggleAnswer(btn){const r=btn.nextElementSibling;r.classList.toggle('show');btn.textContent=r.classList.contains('show')?'隐藏答案':'显示答案';}
+        function showAllAnswers(){document.querySelectorAll('.question').forEach(q=>{const b=q.querySelector('.answer-button'),r=q.querySelector('.answer-reveal');if(!r.classList.contains('show')){r.classList.add('show');b.textContent='隐藏答案';}});}
+        function submitTest(){let s=0;const ua=[];document.querySelectorAll('.question').forEach((q,i)=>{const sel=q.querySelector('input[type="radio"]:checked');if(sel){ua.push(sel.value);if(sel.value===answers[i])s++;}else ua.push(null);});displayResult(s,ua);}
+        function displayResult(s,ua){const p=Math.round(s/10*100),e=p>=80?'🎉':p>=60?'👍':'💪';const wt=[];ua.forEach((a,i)=>{if(a!==answers[i])wt.push(topics[i]);});const d=new Date().toLocaleDateString('zh-CN');const t=`【软考练习成绩·自动存档】\n科目：案例3 负载均衡与有状态/无状态服务（10题）\n日期：${d}\n得分：${s}/10（${p}%）${e}\n详情：答对${s}题，答错${10-s}题\n错误知识点：${wt.length>0?wt.join('、'):'全部正确！'}`;document.getElementById('scoreDisplay').textContent=`得分：${s}/10 (${p}%) ${e}`;document.getElementById('resultDetails').innerHTML=t.split('\n').map(l=>`<div>${l}</div>`).join('');document.getElementById('testResult').classList.add('show');navigator.clipboard.writeText(t).catch(()=>{});}
+        function resetTest(){document.querySelectorAll('.question').forEach(q=>{q.querySelectorAll('input[type="radio"]').forEach(i=>i.checked=false);q.querySelector('.answer-reveal').classList.remove('show');q.querySelector('.answer-button').textContent='显示答案';});document.getElementById('testResult').classList.remove('show');}
+        document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.question').forEach((q,qi)=>{q.querySelectorAll('.option').forEach(o=>{const l=o.querySelector('.option-letter').textContent;const i=document.createElement('input');i.type='radio';i.name=`q${qi}`;i.value=l;i.style.marginRight='8px';o.insertBefore(i,o.firstChild);});});});
+    </script>
+</body>
+</html>
